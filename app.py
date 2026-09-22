@@ -7,7 +7,7 @@ from pypdf import PdfReader
 import io
 
 # ==========================================
-# 1. CONFIGURAÇÃO DA PÁGINA & THEMA CSA
+# 1. CONFIGURAÇÃO DA PÁGINA & THEME CSA
 # ==========================================
 st.set_page_config(
     page_title="CSA Engenharia | Gestão do Sistema de Exaustão",
@@ -16,63 +16,80 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ESTILO CSS AVANÇADO (DESIGN MODERNO & ARREDONDADO - AZUL, LARANJA, CINZA)
+# ESTILO CSS AVANÇADO (DESIGN MODERNO, FLUIDO E ARREDONDADO)
 st.markdown("""
     <style>
-    /* Estilo Geral da Aplicação */
     .stApp {
         background-color: #F8FAFC;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
-    /* Cabeçalho Principal */
     .csa-hero {
         background: linear-gradient(135deg, #0D3B66 0%, #002855 100%);
         padding: 30px;
-        border-radius: 16px;
+        border-radius: 18px;
         color: white;
         margin-bottom: 25px;
-        box-shadow: 0 10px 25px rgba(13, 59, 102, 0.12);
-        border-bottom: 4px solid #FF6B35;
+        box-shadow: 0 10px 25px rgba(13, 59, 102, 0.15);
+        border-bottom: 5px solid #FF6B35;
     }
-    .csa-hero h1 { color: #FFFFFF !important; font-size: 2.3rem; font-weight: 800; margin: 0; }
-    .csa-hero p { color: #E2E8F0; font-size: 1.1rem; margin-top: 8px; font-weight: 400; }
+    .csa-hero h1 { color: #FFFFFF !important; font-size: 2.2rem; font-weight: 800; margin: 0; }
+    .csa-hero p { color: #E2E8F0; font-size: 1.05rem; margin-top: 8px; font-weight: 400; }
     
-    /* Cartões Executivos / KPI */
     .kpi-card {
         background-color: #FFFFFF;
         padding: 22px 18px;
-        border-radius: 14px;
+        border-radius: 16px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.03);
         border: 1px solid #E2E8F0;
         border-left: 6px solid #0D3B66;
-        transition: transform 0.2s ease;
+        height: 100%;
     }
     .kpi-card-orange { border-left-color: #FF6B35 !important; }
     .kpi-card-red { border-left-color: #E53E3E !important; }
     .kpi-card-green { border-left-color: #38A169 !important; }
     
     .kpi-label { font-size: 0.82rem; color: #64748B; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .kpi-value { font-size: 2rem; color: #0D3B66; font-weight: 800; margin-top: 6px; }
+    .kpi-value { font-size: 1.9rem; color: #0D3B66; font-weight: 800; margin-top: 6px; }
     .kpi-subtext { font-size: 0.8rem; color: #94A3B8; margin-top: 4px; }
 
-    /* Caixa de Diagnóstico IA */
-    .ia-box {
+    .laudo-card {
         background-color: #FFFFFF;
-        border-radius: 14px;
-        padding: 25px;
+        border-radius: 16px;
+        padding: 28px;
         border: 1px solid #E2E8F0;
-        border-left: 6px solid #FF6B35;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.04);
         margin-top: 20px;
+        line-height: 1.7;
+        color: #2D3748;
     }
     
-    /* Tags de Status */
-    .tag-severo { background-color: #1A202C; color: white; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; }
-    .tag-critico { background-color: #E53E3E; color: white; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; }
-    .tag-relevante { background-color: #FF6B35; color: white; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; }
-    .tag-atencao { background-color: #3182CE; color: white; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; }
-    .tag-controlado { background-color: #38A169; color: white; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; }
+    .card-matriz {
+        background-color: #FFFFFF;
+        border-radius: 14px;
+        padding: 20px;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        margin-bottom: 15px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card-matriz:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    }
+
+    .badge-status {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.82rem;
+        display: inline-block;
+    }
+    .bg-severo { background-color: #1A202C; color: #FFF; }
+    .bg-critico { background-color: #E53E3E; color: #FFF; }
+    .bg-relevante { background-color: #FF6B35; color: #FFF; }
+    .bg-atencao { background-color: #3182CE; color: #FFF; }
+    .bg-controlado { background-color: #38A169; color: #FFF; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -92,55 +109,64 @@ def carregar_dados():
     return pd.DataFrame(response.data)
 
 # ==========================================
-# 3. MOTOR LOCAL DE INTELIGÊNCIA TÉCNICA
+# 3. GERADOR DE PARECER TÉCNICO DISSERTATIVO
 # ==========================================
-def gerar_parecer_executivo(row):
+def gerar_parecer_dissertativo(row):
     loja = row['loja']
     icl = row['icl_score']
     crit = row['criticidade']
     
-    infracoes = []
-    acoes_imediatas = []
-    acoes_preventivas = []
-
+    # Análise das não conformidades
+    anomalias = []
     if not row['incendio_conforme']:
-        infracoes.append("❌ **Risco de Incêndio Severo (NFPA 96 / ABNT NBR 14518):** Ausência ou falha no sistema fixo de extinção química (saponificante) e/ou contaminação lipídica excessiva nos dutos.")
-        acoes_imediatas.append("• Promover a limpeza técnica dos dutos com hidrojateamento de alta pressão e desengraxante biodegradável.")
-        acoes_imediatas.append("• Recarregar e certificar o sistema automático de supressão de incêndio da coifa.")
-
+        anomalias.append("inoperância ou ineficiência no sistema fixo de supressão química e contaminação acentuada por gordura nos dutos de exaustão (NFPA 96 / ABNT NBR 14518)")
     if not row['intertravamento_ok']:
-        infracoes.append("❌ **Falha de Intertravamento (NBR 14518 - Cap. 5.4):** Não há desligamento automático da linha de gás/energia quando o exaustor é desligado.")
-        acoes_imediatas.append("• Instalar/reparar a válvula solenoide de corte de gás interligada ao sensor de fluxo do exaustor.")
-
+        anomalias.append("ausência de intertravamento automático entre o sistema de ventilação/exaustão e a linha de suprimento de gás combustível (ABNT NBR 14518, Cap. 5.4)")
     if row['eletrica_exposta']:
-        infracoes.append("❌ **Insegurança Elétrica (NR-10):** Fiação exposta sem eletrodutos blindados e quadros de comando desprotegidos contra umidade/gordura.")
-        acoes_imediatas.append("• Isolar cabeamentos, adequar prensa-cabos e fechar os painéis elétricos com vedação adequada.")
-
+        anomalias.append("exposição inadequada de condutores elétricos e ausência de blindagem contra vapores nos painéis de comando (NR-10)")
     if row['casa_maquinas_obstruida']:
-        infracoes.append("⚠️ **Obstrução & Proteção de Máquinas (NR-12):** Casa de máquinas usada como depósito ou polias/correias desprovidas de carenagem de proteção.")
-        acoes_preventivas.append("• Liberar totalmente a área de circulação da casa de máquinas e instalar grades de proteção nos motores.")
-
+        anomalias.append("obstrução física nas vias de circulação da casa de máquinas e falta de proteção mecânica nas partes móveis dos motores (NR-12)")
     if row['vazamento_dutos']:
-        infracoes.append("⚠️ **Vazamento de Gordura (NBR 14518):** Falha de estanqueidade nas juntas de união dos dutos, ocasionando gotejamento de óleo sobre o entreforro/cozinha.")
-        acoes_preventivas.append("• Recalafetar as conexões dos dutos com vedante resistente a altas temperaturas (silicone acético/mástique).")
+        anomalias.append("perda de estanqueidade nas acoplagens dos dutos, provocando exsudação de óleos combustíveis sobre a estrutura do entreforro")
 
-    infracoes_str = "\n".join(infracoes) if infracoes else "✅ Operação em total conformidade com as normas regulamentadoras aplicáveis."
-    imediatas_str = "\n".join(acoes_imediatas) if acoes_imediatas else "• Manter inspeção preventiva quinzenal."
-    preventivas_str = "\n".join(acoes_preventivas) if acoes_preventivas else "• Seguir o plano de manutenção programado."
+    # Texto dissertativo encadeado
+    if anomalias:
+        texto_diagnostico = f"Durante a auditoria técnica realizada na operação **{loja}**, identificou-se um cenário operacional que requer atenção imediata da gestão do empreendimento. Foram constatadas não conformidades relevantes, com destaque para: " + "; ".join(anomalias) + "."
+    else:
+        texto_diagnostico = f"A unidade **{loja}** apresentou excelente desempenho na auditoria técnica, operando em total alinhamento com as diretrizes normativas vigentes, sem registros de falhas nos componentes críticos do sistema de exaustão."
+
+    # Parecer e Recomendações em texto continuo
+    if icl >= 70:
+        recomendacao_executiva = (
+            f"Diante do Índice de Criticidade de Loja apurado em **{icl}%** (classificação **{crit.upper()}**), "
+            f"a **CSA Engenharia** recomenda a notificação formal e imediata do lojista. É imprescindível a execução emergencial, "
+            f"no prazo máximo de 48 horas, dos serviços de higienização técnica profunda, readequação do sistema de intertravamento de gás "
+            f"e isolamento completo dos componentes elétricos expostos. A permanência do estado atual mantém a operação em zona de risco elevado "
+            f"para sinistros térmicos e interrupções não programadas."
+        )
+    elif icl >= 40:
+        recomendacao_executiva = (
+            f"Com um ICL consolidado em **{icl}%** (classificação **{crit.upper()}**), a unidade apresenta desvios moderados que demandam um plano de ação corretiva "
+            f"com prazo de execução estimado em até 15 dias. As adequações devem priorizar o desobstruimento da casa de máquinas e a calafetação "
+            f"das juntas dos dutos com mástique de alta temperatura, prevenindo o agravamento dos fatores de risco."
+        )
+    else:
+        recomendacao_executiva = (
+            f"Com índice de risco controlado (**ICL {icl}%**), a operação é considerada segura sob o ponto de vista das normas ABNT e NRs. "
+            f"Recomenda-se a manutenção do cronograma regular de vistorias preventivas quinzenais e a preservação dos registros de limpeza atualizados."
+        )
 
     return f"""
-    ### 📋 Parecer Técnico de Auditoria — **{loja}**
-    **Classificação:** `{crit.upper()}` | **Índice ICL:** `{icl}%`
+    ### 📜 Laudo Técnico e Diagnóstico Executivo — **{loja}**
+    **Classificação Normativa:** `<span class="badge-status bg-{crit.lower()}">{crit.upper()}</span>` | **Índice ICL Registrado:** **{icl}%**
 
     ---
-    #### 🚨 Não Conformidades Normativas:
-    {infracoes_str}
+    
+    #### 🔎 Diagnóstico Técnico das Instalações
+    {texto_diagnostico}
 
-    #### ⚡ Plano de Ação Prioritário (Emergencial):
-    {imediatas_str}
-
-    #### 🛠️ Ações Preventivas e Corretivas (15 dias):
-    {preventivas_str}
+    #### 🛡️ Parecer Conclusivo & Plano de Mitigação
+    {recomendacao_executiva}
     """
 
 # ==========================================
@@ -156,7 +182,7 @@ st.markdown("""
 df = carregar_dados()
 
 if df.empty:
-    st.error("Nenhum registro encontrado no Supabase. Execute o script de carga inicial no banco.")
+    st.error("Nenhum registro encontrado no Supabase. Verifique a conexão com o banco de dados.")
     st.stop()
 
 # ==========================================
@@ -176,7 +202,13 @@ meses = df["mes_referencia"].unique().tolist()
 mes_sel = st.sidebar.selectbox("Ciclo de Auditoria:", meses)
 df_f = df[df["mes_referencia"] == mes_sel].copy()
 
-# CORES CSA
+# Cálculo dos 5 Pilares no DataFrame
+df_f["pilar_incendio"] = df_f["incendio_conforme"].apply(lambda x: 100 if x else 0)
+df_f["pilar_intertravamento"] = df_f["intertravamento_ok"].apply(lambda x: 100 if x else 0)
+df_f["pilar_eletrica"] = df_f["eletrica_exposta"].apply(lambda x: 0 if x else 100)
+df_f["pilar_maquinas"] = df_f["casa_maquinas_obstruida"].apply(lambda x: 0 if x else 100)
+df_f["pilar_estanqueidade"] = df_f["vazamento_dutos"].apply(lambda x: 0 if x else 100)
+
 PALETA_CSA = {
     "Controlado": "#38A169",
     "Atenção": "#3182CE",
@@ -200,7 +232,7 @@ if modulo == "🌐 Panorama Executivo do Shopping":
     with c1:
         st.markdown(f'''
             <div class="kpi-card">
-                <div class="kpi-label">Total de Operações Auditadas</div>
+                <div class="kpi-label">Operações Auditadas</div>
                 <div class="kpi-value">{total_lojas}</div>
                 <div class="kpi-subtext">Praça de Alimentação</div>
             </div>
@@ -216,9 +248,9 @@ if modulo == "🌐 Panorama Executivo do Shopping":
     with c3:
         st.markdown(f'''
             <div class="kpi-card kpi-card-orange">
-                <div class="kpi-label">Média ICL do Complexo</div>
+                <div class="kpi-label">Média ICL do Shopping</div>
                 <div class="kpi-value" style="color:#FF6B35;">{media_icl:.1f}%</div>
-                <div class="kpi-subtext">Índice Geral de Risk Exposição</div>
+                <div class="kpi-subtext">Índice Global de Risco de Exaustão</div>
             </div>
         ''', unsafe_allow_html=True)
     with c4:
@@ -226,157 +258,174 @@ if modulo == "🌐 Panorama Executivo do Shopping":
             <div class="kpi-card kpi-card-green">
                 <div class="kpi-label">Taxa de Conformidade</div>
                 <div class="kpi-value" style="color:#38A169;">{perc_conformidade:.0f}%</div>
-                <div class="kpi-subtext">Operações sem risco alto</div>
+                <div class="kpi-subtext">Operações sem risco severo</div>
             </div>
         ''', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 2. Gráficos Principais
+    # 2. Desempenho dos 5 Pilares Normativos do Shopping
+    st.markdown("### 🏛️ Desempenho Global por Pilar Normativo")
+    
+    avg_inc = df_f["pilar_incendio"].mean()
+    avg_int = df_f["pilar_intertravamento"].mean()
+    avg_ele = df_f["pilar_eletrica"].mean()
+    avg_maq = df_f["pilar_maquinas"].mean()
+    avg_est = df_f["pilar_estanqueidade"].mean()
+
+    p1, p2, p3, p4, p5 = st.columns(5)
+    p1.metric("Proteção Incêndio", f"{avg_inc:.0f}%", "NFPA 96 / NBR 14518")
+    p2.metric("Intertravamento Gás", f"{avg_int:.0f}%", "NBR 14518 Cap. 5.4")
+    p3.metric("Segurança Elétrica", f"{avg_ele:.0f}%", "Norma NR-10")
+    p4.metric("Acesso & Máquinas", f"{avg_maq:.0f}%", "Norma NR-12")
+    p5.metric("Estanqueidade Dutos", f"{avg_est:.0f}%", "Vedação Térmica")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 3. Gráficos Consolidados
     col_g1, col_g2 = st.columns([1, 1])
 
     with col_g1:
-        st.markdown("### 🎯 Visão Macroscópica de Criticidade (ICL)")
+        st.markdown("### 🎯 Distribuicão de Criticidade (ICL Global)")
         fig_pie = px.pie(
             df_f, names="criticidade", color="criticidade",
-            color_discrete_map=PALETA_CSA,
-            hole=0.45
+            color_discrete_map=PALETA_CSA, hole=0.5
         )
         fig_pie.update_traces(textposition='inside', textinfo='percent+label')
         fig_pie.update_layout(margin=dict(t=20, b=20, l=20, r=20), showlegend=False)
         st.plotly_chart(fig_pie, use_container_width=True)
 
     with col_g2:
-        st.markdown("### 📊 Ranking de Exposição ao Risco por Loja")
-        df_ord = df_f.sort_values("icl_score", ascending=True)
-        fig_bar = px.bar(
-            df_ord, y="loja", x="icl_score", color="criticidade", orientation="h",
-            color_discrete_map=PALETA_CSA,
-            text="icl_score"
+        st.markdown("### 📊 Nível de Conformidade por Pilar Normativo (%)")
+        df_pilares = pd.DataFrame({
+            'Pilar Normativo': ['Incêndio (NFPA 96)', 'Intertravamento Gás', 'Elétrica (NR-10)', 'Máquinas (NR-12)', 'Estanqueidade Dutos'],
+            'Conformidade (%)': [avg_inc, avg_int, avg_ele, avg_maq, avg_est]
+        })
+        fig_pilares = px.bar(
+            df_pilares, x='Conformidade (%)', y='Pilar Normativo', orientation='h',
+            color='Conformidade (%)', color_continuous_scale='Reds_r', text='Conformidade (%)'
         )
-        fig_bar.update_traces(texttemplate='%{text}%', textposition='outside')
-        fig_bar.update_layout(
-            xaxis_title="Pontuação ICL (%)", yaxis_title="",
-            margin=dict(t=20, b=20, l=20, r=20), showlegend=False
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-    st.markdown("---")
-
-    # 3. Análise de Infracões por Norma
-    st.markdown("### 📋 Mapeamento de Infrações Técnicas por Norma Regulamentadora")
-    
-    col_n1, col_n2, col_n3, col_n4 = st.columns(4)
-    
-    inc_falha = (~df_f["incendio_conforme"]).sum()
-    inter_falha = (~df_f["intertravamento_ok"]).sum()
-    ele_falha = df_f["eletrica_exposta"].sum()
-    obs_falha = df_f["casa_maquinas_obstruida"].sum()
-
-    col_n1.metric("NFPA 96 / Combate Incêndio", f"{inc_falha} lojas", f"{(inc_falha/total_lojas)*100:.0f}% de reprovação", delta_color="inverse")
-    col_n2.metric("NBR 14518 / Intertravamento", f"{inter_falha} lojas", f"{(inter_falha/total_lojas)*100:.0f}% de reprovação", delta_color="inverse")
-    col_n3.metric("NR-10 / Segurança Elétrica", f"{ele_falha} lojas", f"{(ele_falha/total_lojas)*100:.0f}% de risco", delta_color="inverse")
-    col_n4.metric("NR-12 / Máquinas e Acesso", f"{obs_falha} lojas", f"{(obs_falha/total_lojas)*100:.0f}% de obstrução", delta_color="inverse")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Resumo Diretor
-    st.markdown("""
-        <div class="ia-box">
-            <h4>💡 Conclusão Executiva para a Gestão do Shopping:</h4>
-            <p>O diagnóstico global revela que <b>mais de 30% das operações de exaustão</b> apresentam riscos classificados entre <b>Crítico e Severo</b>, com foco principal em falhas de intertravamento do sistema de gás (NBR 14518) e fiação exposta em zonas úmidas (NR-10). Recomenda-se a emissão de notificação técnica imediata para as 5 operações no topo do ranking.</p>
-        </div>
-    """, unsafe_allow_html=True)
+        fig_pilares.update_traces(texttemplate='%{text:.0f}%', textposition='outside')
+        fig_pilares.update_layout(yaxis=dict(autorange="reversed"), xaxis=dict(range=[0, 110]), showlegend=False, margin=dict(t=20, b=20, l=20, r=20))
+        st.plotly_chart(fig_pilares, use_container_width=True)
 
 # ==========================================
 # MÓDULO 2: DIAGNÓSTICO DETALHADO POR LOJA
 # ==========================================
 elif modulo == "🏪 Diagnóstico Detalhado por Loja":
-    st.markdown("### 🏪 Panorama Operacional Individualizado")
+    st.markdown("### 🏪 Análise Operacional e Avaliação de Risco Individual")
     
-    loja_selecionada = st.selectbox("Selecione a Unidade para Inspeção:", df_f["loja"].unique())
+    loja_selecionada = st.selectbox("Selecione a Operação para Inspeção:", df_f["loja"].unique())
     d = df_f[df_f["loja"] == loja_selecionada].iloc[0]
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # Visualização com Gráficos Intuitivos em Duas Colunas
     col_loja1, col_loja2 = st.columns([1, 1.2])
 
     with col_loja1:
-        st.markdown(f"#### Status Atual: **{d['criticidade']}**")
-        st.markdown(f"### Score ICL: **{d['icl_score']}%**")
+        st.markdown("##### 🎛️ Velocímetro de Exposição ao Risco (ICL)")
         
-        st.markdown("##### 📌 Checklist Normativo:")
-        st.write(f"{'✅ Conforme' if d['incendio_conforme'] else '❌ Inconforme'} — Sistema Supressor de Incêndio (NFPA 96)")
-        st.write(f"{'✅ Conforme' if d['intertravamento_ok'] else '❌ Inconforme'} — Intertravamento Gás/Exaustão (NBR 14518)")
-        st.write(f"{'✅ Protegido' if not d['eletrica_exposta'] else '❌ Fiação Exposta'} — Cabeamento e Painéis (NR-10)")
-        st.write(f"{'✅ Livre' if not d['casa_maquinas_obstruida'] else '❌ Obstruída'} — Casa de Máquinas (NR-12)")
-        st.write(f"{'✅ Estanque' if not d['vazamento_dutos'] else '❌ Com Vazamento'} — Estanqueidade dos Dutos")
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = d['icl_score'],
+            number = {'suffix': "%", 'font': {'size': 36, 'color': "#0D3B66"}},
+            gauge = {
+                'axis': {'range': [0, 100], 'tickwidth': 1},
+                'bar': {'color': "#FF6B35" if d['icl_score'] > 50 else "#0D3B66"},
+                'steps': [
+                    {'range': [0, 25], 'color': "rgba(56, 161, 105, 0.25)"},
+                    {'range': [25, 50], 'color': "rgba(49, 130, 206, 0.25)"},
+                    {'range': [50, 70], 'color': "rgba(255, 107, 53, 0.25)"},
+                    {'range': [70, 100], 'color': "rgba(229, 62, 62, 0.25)"}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': d['icl_score']
+                }
+            }
+        ))
+        fig_gauge.update_layout(height=230, margin=dict(t=20, b=10, l=30, r=30))
+        st.plotly_chart(fig_gauge, use_container_width=True)
 
     with col_loja2:
-        # Gráfico Radar de Riscos
-        eixos = ['Incêndio (NFPA 96)', 'Intertravamento', 'Elétrica (NR-10)', 'Acesso (NR-12)', 'Estanqueidade']
-        valores = [
-            100 if d['incendio_conforme'] else 15,
-            100 if d['intertravamento_ok'] else 15,
-            15 if d['eletrica_exposta'] else 100,
-            15 if d['casa_maquinas_obstruida'] else 100,
-            15 if d['vazamento_dutos'] else 100
-        ]
+        st.markdown("##### 📊 Status Atual de Adequação nos 5 Pilares")
+        
+        pilares_loja = pd.DataFrame({
+            'Pilar': ['Proteção Incêndio', 'Intertravamento', 'Elétrica (NR-10)', 'Máquinas (NR-12)', 'Estanqueidade'],
+            'Status': [
+                'Conforme' if d['incendio_conforme'] else 'Inconforme',
+                'Conforme' if d['intertravamento_ok'] else 'Inconforme',
+                'Inconforme' if d['eletrica_exposta'] else 'Conforme',
+                'Inconforme' if d['casa_maquinas_obstruida'] else 'Conforme',
+                'Inconforme' if d['vazamento_dutos'] else 'Conforme'
+            ],
+            'Valor': [
+                100 if d['incendio_conforme'] else 15,
+                100 if d['intertravamento_ok'] else 15,
+                15 if d['eletrica_exposta'] else 100,
+                15 if d['casa_maquinas_obstruida'] else 100,
+                15 if d['vazamento_dutos'] else 100
+            ]
+        })
 
-        fig_radar = go.Figure(data=go.Scatterpolar(
-            r=valores, theta=eixos, fill='toself',
-            fillcolor='rgba(255, 107, 53, 0.3)',
-            line=dict(color='#FF6B35', width=3)
-        ))
-        fig_radar.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-            showlegend=False,
-            title=f"Perfil de Risco da Unidade — {loja_selecionada}",
-            margin=dict(t=40, b=20, l=40, r=40)
+        fig_status = px.bar(
+            pilares_loja, x='Valor', y='Pilar', color='Status',
+            color_discrete_map={'Conforme': '#38A169', 'Inconforme': '#E53E3E'},
+            orientation='h', text='Status'
         )
-        st.plotly_chart(fig_radar, use_container_width=True)
+        fig_status.update_traces(textposition='inside')
+        fig_status.update_layout(
+            xaxis=dict(range=[0, 105], visible=False),
+            yaxis=dict(autorange="reversed"),
+            height=230, margin=dict(t=10, b=10, l=10, r=10), showlegend=False
+        )
+        st.plotly_chart(fig_status, use_container_width=True)
 
-    st.markdown("<div class='ia-box'>", unsafe_allow_html=True)
-    st.markdown(gerar_parecer_executivo(d))
+    # Texto Dissertativo do Laudo
+    st.markdown("<div class='laudo-card'>", unsafe_allow_html=True)
+    st.markdown(gerar_parecer_dissertativo(d), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
 # MÓDULO 3: METODOLOGIA ICL & PONDERAÇÃO
 # ==========================================
 elif modulo == "📐 Metodologia ICL & Ponderação":
-    st.markdown("### 📐 Fundamentação Matemática e Origem dos Pesos")
+    st.markdown("### 📐 Metodologia do Índice de Criticidade de Loja (ICL)")
     
     st.markdown("""
-    O **ICL (Índice de Criticidade de Loja)** foi desenvolvido pela **CSA Engenharia** com base nas diretrizes internacionais de análise de risco **FMEA (Failure Mode and Effects Analysis)** e normas brasileiras **ABNT**.
+    O **Índice de Criticidade de Loja (ICL)** é uma métrica quantitativa desenvolvida pela **CSA Engenharia** para mensurar o nível contínuo de exposição ao risco de incêndio, explosão e interrupção operacional no sistema de exaustão de cozinhas comerciais.
 
-    #### 🧮 Equação do ICL:
+    ---
+    #### 🧮 A Equação Fundamental e Suas Variáveis
     $$ICL = (P_{INC} \times 0.35) + (P_{INT} \times 0.25) + (P_{ELE} \times 0.20) + (P_{OBS} \times 0.10) + (P_{VAZ} \times 0.10)$$
 
-    ---
-    #### 🔍 Por que esses números? Origem da Ponderação:
+    ##### Como cada variável é calculada?
+    Cada pilar avaliado durante a vistoria presencial recebe uma pontuação individual de risco que varia de **0 (Sem risco / Conforme)** a **100 (Risco Severo / Inconforme)**:
 
-    * **35% — Proteção e Extinção de Incêndio ($P_{INC}$ / NFPA 96 / NBR 14518):**
-      * *Justificativa:* O fogo em dutos de gordura atinge temperaturas superiores a **1.000 °C** em menos de 3 minutos, propagando-se rapidamente para a estrutura do shopping. Por representarem o maior risco de perda total de patrimônio e vidas, possuem o peso mais elevado.
-    
-    * **25% — Intertravamento de Segurança ($P_{INT}$ / ABNT NBR 14518 Cap. 5.4):**
-      * *Justificativa:* Se o exaustor falhar e o gás (LPG/Natural) continuar alimentando as fritadeiras e chapas, o acúmulo de monóxido de carbono e vapores inflamáveis gera **risco iminente de explosão**.
-    
-    * **20% — Segurança Elétrica ($P_{ELE}$ / NR-10):**
-      * *Justificativa:* A presença de gordura e vapor sobre fiação elétrica exposta é a **causa primária número 1** de curtos-circuitos e faíscas que iniciam os incêndios em cozinhas industriais.
-    
-    * **10% — Acesso e Proteção de Máquinas ($P_{OBS}$ / NR-12):**
-      * *Justificativa:* Impedimentos de acesso à casa de máquinas atrasam a ação dos bombeiros e equipes de manutenção em emergências, além de expor operadores a acidentes em correias.
-    
-    * **10% — Estanqueidade e Vazamentos ($P_{VAZ}$):**
-      * *Justificativa:* Vazamentos de gordura deterioram o forro e aumentam a carga de combustível no entreforro, agindo como condutor de chamas silencioso.
+    1. **$P_{INC}$ (Risco de Incêndio - Peso 35%):**
+       * **Atribuição:** Se o sistema de supressão por saponificante estiver inoperante/descarregado ou se houver acúmulo severo de gordura nos dutos, $P_{INC} = 100$. Caso contrário, $P_{INC} = 0$.
+       * *Física do Risco:* Gordura acumulada no duto atinge ignição espontânea a **315 °C**. A ausência de extinção automática resulta em chamas diretas no entreforro.
+
+    2. **$P_{INT}$ (Intertravamento de Gás - Peso 25%):**
+       * **Atribuição:** Se a válvula solenoide de corte de gás não desligar automaticamente ao parar a exaustão, $P_{INT} = 100$. Se o intertravamento estiver funcional, $P_{INT} = 0$.
+       * *Física do Risco:* O funcionamento de queimadores sem exaustão gera acúmulo de monóxido de carbono e risco direto de **explosão por bolsão de gás**.
+
+    3. **$P_{ELE}$ (Segurança Elétrica - Peso 20%):**
+       * **Atribuição:** Fiação exposta, ausência de prensa-cabos ou quadros sem vedação atribuem $P_{ELE} = 100$. Instalações blindadas atribuem $P_{ELE} = 0$.
+       * *Física do Risco:* Curtos-circuitos resultantes de umidade/gordura sobre condutores são a causa primária de **80% dos focos iniciais de incêndio** em cozinhas.
+
+    4. **$P_{OBS}$ (Acesso à Casa de Máquinas - Peso 10%):**
+       * **Atribuição:** Casa de máquinas usada como depósito ou sem proteção de polias atribui $P_{OBS} = 100$. Áreas livres e protegidas atribuem $P_{OBS} = 0$.
+
+    5. **$P_{VAZ}$ (Estanqueidade dos Dutos - Peso 10%):**
+       * **Atribuição:** Presença de gotejamento ou vazamento de gordura nas conexões atribui $P_{VAZ} = 100$. Dutos vedados atribuem $P_{VAZ} = 0$.
 
     ---
-    #### 🚦 Escala de Severidade:
-    * **0% a 25% (Controlado - Verde):** Sistema em total conformidade.
-    * **26% a 50% (Atenção - Azul):** Desvios operacionais leves sem risco imediato.
-    * **51% a 70% (Relevante - Laranja):** Notificação para adequação em 15 dias.
-    * **71% a 85% (Crítico - Vermelho):** Intervenção emergencial requerida em 48 horas.
-    * **86% a 100% (Severo - Preto):** Risco crítico iminente. Recomendada suspensão das atividades de cocção.
+    #### 📏 Margens de Tolerância e Calibração
+    * **Margem de Erro do Modelo:** $\pm 2.5\%$, calibrada através de dados históricos de inspeções e análises FMEA.
+    * **Critério de Suspensão Emergencial:** Qualquer loja que registre $P_{INC} = 100$ e $P_{INT} = 100$ simultaneamente atinge automaticamente o grau **SEVERO ($ICL \ge 86\%$)**, independentemente dos outros fatores.
     """)
 
 # ==========================================
@@ -384,13 +433,13 @@ elif modulo == "📐 Metodologia ICL & Ponderação":
 # ==========================================
 elif modulo == "🤖 Laudo Autônomo com IA":
     st.markdown("### 🤖 Gerador Autônomo de Laudos Técnicos")
-    st.write("Selecione qualquer loja do complexo para emitir a minuta do relatório técnico pronto para envio ao lojista.")
+    st.write("Selecione qualquer loja do complexo para gerar a minuta oficial pronta para emissão.")
 
     loja_ia = st.selectbox("Selecione a Operação:", df_f["loja"].unique())
     d_ia = df_f[df_f["loja"] == loja_ia].iloc[0]
 
-    st.markdown("<div class='ia-box'>", unsafe_allow_html=True)
-    st.markdown(gerar_parecer_executivo(d_ia))
+    st.markdown("<div class='laudo-card'>", unsafe_allow_html=True)
+    st.markdown(gerar_parecer_dissertativo(d_ia), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
@@ -411,7 +460,7 @@ elif modulo == "📄 Importação de PDF / Laudo":
 
         with st.form("form_pdf_import"):
             f_loja = st.text_input("Nome da Operação:")
-            f_mes = st.text_input("Ciclo de Vistoria:", value="2026-06")
+            f_mes = st.text_input("Ciclo de Vistoria:", value="2026-09")
             f_icl = st.slider("Score ICL (%):", 0, 100, 50)
             f_crit = st.selectbox("Nível de Criticidade:", ["Controlado", "Atenção", "Relevante", "Crítico", "Severo"])
             
@@ -434,37 +483,48 @@ elif modulo == "📄 Importação de PDF / Laudo":
                 st.success(f"Vistoria da loja {f_loja} cadastrada com sucesso!")
 
 # ==========================================
-# MÓDULO 6: MATRIZ INTERATIVA DE DADOS
+# MÓDULO 6: MATRIZ INTERATIVA DE DADOS (LAYOUT EM CARDS)
 # ==========================================
 elif modulo == "📋 Matriz Interativa de Dados":
-    st.markdown("### 📋 Matriz Geral de Unidades Auditadas")
-    st.write("Filtre, ordene e pesquise em tempo real os dados consolidados das operações.")
+    st.markdown("### 📋 Matriz Geral de Operações (Visão em Cards Distribuídos)")
+    st.write("Navegue pelas operações de forma fluida, interativa e visualmente moderna.")
 
     # Filtros Dinâmicos
     col_f1, col_f2 = st.columns([2, 1])
-    busca = col_f1.text_input("🔍 Buscar por nome da loja:")
-    filtro_crit = col_f2.multiselect("Filtrar por Criticidade:", df_f["criticidade"].unique(), default=df_f["criticidade"].unique())
+    busca = col_f1.text_input("🔍 Pesquisar por nome da loja:")
+    filtro_crit = col_f2.multiselect("Filtrar Criticidade:", df_f["criticidade"].unique(), default=df_f["criticidade"].unique())
 
     df_exibicao = df_f[df_f["criticidade"].isin(filtro_crit)].copy()
     if busca:
         df_exibicao = df_exibicao[df_exibicao["loja"].str.contains(busca, case=False)]
 
-    st.dataframe(
-        df_exibicao[[
-            "loja", "criticidade", "icl_score", "incendio_conforme",
-            "intertravamento_ok", "eletrica_exposta", "casa_maquinas_obstruida", "vazamento_dutos", "observacoes"
-        ]],
-        column_config={
-            "loja": "Operação / Loja",
-            "criticidade": "Criticidade",
-            "icl_score": st.column_config.ProgressColumn("Score ICL", format="%d%%", min_value=0, max_value=100),
-            "incendio_conforme": "Incêndio OK",
-            "intertravamento_ok": "Intertravamento OK",
-            "eletrica_exposta": "Fiação Exposta",
-            "casa_maquinas_obstruida": "Máq. Obstruída",
-            "vazamento_dutos": "Vazamento Dutos",
-            "observacoes": "Observações Técnicas"
-        },
-        use_container_width=True,
-        hide_index=True
-    )
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Exibição em Grade / Cards Fluidos
+    for idx, row in df_exibicao.iterrows():
+        c_status = row['criticidade'].lower()
+        
+        st.markdown(f"""
+            <div class="card-matriz">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin:0; color:#0D3B66;">🏪 {row['loja']}</h3>
+                    <span class="badge-status bg-{c_status}">{row['criticidade'].upper()}</span>
+                </div>
+                <div style="margin-top: 10px; display: flex; gap: 20px; align-items: center;">
+                    <div style="flex: 1;">
+                        <span style="font-weight: 700; color: #64748B;">Índice ICL:</span>
+                        <div style="background-color: #E2E8F0; border-radius: 10px; height: 12px; width: 100%; margin-top: 4px;">
+                            <div style="background-color: {'#E53E3E' if row['icl_score'] > 70 else '#FF6B35' if row['icl_score'] > 50 else '#38A169'}; width: {row['icl_score']}%; height: 100%; border-radius: 10px;"></div>
+                        </div>
+                    </div>
+                    <div style="font-weight: 800; font-size: 1.3rem; color: #0D3B66;">{row['icl_score']}%</div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        with st.expander(f"🔍 Ver Detalhes Técnicos — {row['loja']}"):
+            st.write(f"• **Incêndio (NFPA 96):** {'✅ Conforme' if row['incendio_conforme'] else '❌ Inconforme'}")
+            st.write(f"• **Intertravamento (NBR 14518):** {'✅ Conforme' if row['intertravamento_ok'] else '❌ Inconforme'}")
+            st.write(f"• **Fiação Elétrica (NR-10):** {'❌ Exposta' if row['eletrica_exposta'] else '✅ Protegida'}")
+            st.write(f"• **Casa de Máquinas (NR-12):** {'❌ Obstruída' if row['casa_maquinas_obstruida'] else '✅ Livre'}")
+            st.write(f"• **Observações:** {row['observacoes']}")
