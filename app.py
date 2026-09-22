@@ -116,44 +116,39 @@ def gerar_parecer_dissertativo(row):
     icl = row['icl_score']
     crit = row['criticidade']
     
-    # Análise das não conformidades
     anomalias = []
     if not row['incendio_conforme']:
-        anomalias.append("inoperância ou ineficiência no sistema fixo de supressão química e contaminação acentuada por gordura nos dutos de exaustão (NFPA 96 / ABNT NBR 14518)")
+        anomalias.append("inoperância do sistema fixo de supressão química saponificante e acúmulo de gordura nos dutos (NFPA 96 / ABNT NBR 14518)")
     if not row['intertravamento_ok']:
-        anomalias.append("ausência de intertravamento automático entre o sistema de ventilação/exaustão e a linha de suprimento de gás combustível (ABNT NBR 14518, Cap. 5.4)")
+        anomalias.append("ausência de intertravamento automático entre ventilação/exaustão e a linha de gás combustível (ABNT NBR 14518, Cap. 5.4)")
     if row['eletrica_exposta']:
-        anomalias.append("exposição inadequada de condutores elétricos e ausência de blindagem contra vapores nos painéis de comando (NR-10)")
+        anomalias.append("exposição inadequada de condutores e quadros de comando sem vedação contra vapores (Norma Regulamentadora NR-10)")
     if row['casa_maquinas_obstruida']:
-        anomalias.append("obstrução física nas vias de circulação da casa de máquinas e falta de proteção mecânica nas partes móveis dos motores (NR-12)")
+        anomalias.append("obstrução física nas vias da casa de máquinas e falta de carenagem de proteção em partes móveis (Norma Regulamentadora NR-12)")
     if row['vazamento_dutos']:
-        anomalias.append("perda de estanqueidade nas acoplagens dos dutos, provocando exsudação de óleos combustíveis sobre a estrutura do entreforro")
+        anomalias.append("falha de estanqueidade nas acoplagens dos dutos, gerando exsudação de óleos combustíveis no entreforro (ABNT NBR 14518)")
 
-    # Texto dissertativo encadeado
     if anomalias:
-        texto_diagnostico = f"Durante a auditoria técnica realizada na operação **{loja}**, identificou-se um cenário operacional que requer atenção imediata da gestão do empreendimento. Foram constatadas não conformidades relevantes, com destaque para: " + "; ".join(anomalias) + "."
+        texto_diagnostico = f"Durante a auditoria técnica presencial na operação **{loja}**, foram constatadas não conformidades normativas relevantes, tais como: " + "; ".join(anomalias) + "."
     else:
-        texto_diagnostico = f"A unidade **{loja}** apresentou excelente desempenho na auditoria técnica, operando em total alinhamento com as diretrizes normativas vigentes, sem registros de falhas nos componentes críticos do sistema de exaustão."
+        texto_diagnostico = f"A unidade **{loja}** apresentou desempenho exemplar na vistoria técnica, operando em total conformidade com as diretrizes da ABNT NBR 14518, NFPA 96, NR-10 e NR-12."
 
-    # Parecer e Recomendações em texto continuo
     if icl >= 70:
         recomendacao_executiva = (
             f"Diante do Índice de Criticidade de Loja apurado em **{icl}%** (classificação **{crit.upper()}**), "
-            f"a **CSA Engenharia** recomenda a notificação formal e imediata do lojista. É imprescindível a execução emergencial, "
-            f"no prazo máximo de 48 horas, dos serviços de higienização técnica profunda, readequação do sistema de intertravamento de gás "
-            f"e isolamento completo dos componentes elétricos expostos. A permanência do estado atual mantém a operação em zona de risco elevado "
-            f"para sinistros térmicos e interrupções não programadas."
+            f"a **CSA Engenharia** recomenda notificação formal imediata ao lojista. É necessária a execução emergencial, "
+            f"em até 48 horas, de higienização técnica profunda, adequação do intertravamento de gás e isolamento das instalações elétricas. "
+            f"A inércia mantém a operação em zona de risco crítico para sinistros térmicos."
         )
     elif icl >= 40:
         recomendacao_executiva = (
-            f"Com um ICL consolidado em **{icl}%** (classificação **{crit.upper()}**), a unidade apresenta desvios moderados que demandam um plano de ação corretiva "
-            f"com prazo de execução estimado em até 15 dias. As adequações devem priorizar o desobstruimento da casa de máquinas e a calafetação "
-            f"das juntas dos dutos com mástique de alta temperatura, prevenindo o agravamento dos fatores de risco."
+            f"Com um ICL de **{icl}%** (classificação **{crit.upper()}**), a unidade apresenta desvios moderados que demandam plano de ação corretiva "
+            f"em até 15 dias, priorizando o desobstruimento da casa de máquinas e a recalafetação das juntas dos dutos."
         )
     else:
         recomendacao_executiva = (
-            f"Com índice de risco controlado (**ICL {icl}%**), a operação é considerada segura sob o ponto de vista das normas ABNT e NRs. "
-            f"Recomenda-se a manutenção do cronograma regular de vistorias preventivas quinzenais e a preservação dos registros de limpeza atualizados."
+            f"Com índice controlado (**ICL {icl}%**), a operação atende aos requisitos de segurança normativos. "
+            f"Recomenda-se a manutenção do cronograma quinzenal de inspeção preventiva."
         )
 
     return f"""
@@ -278,7 +273,7 @@ if modulo == "🌐 Panorama Executivo do Shopping":
     p2.metric("Intertravamento Gás", f"{avg_int:.0f}%", "NBR 14518 Cap. 5.4")
     p3.metric("Segurança Elétrica", f"{avg_ele:.0f}%", "Norma NR-10")
     p4.metric("Acesso & Máquinas", f"{avg_maq:.0f}%", "Norma NR-12")
-    p5.metric("Estanqueidade Dutos", f"{avg_est:.0f}%", "Vedação Térmica")
+    p5.metric("Estanqueidade Dutos", f"{avg_est:.0f}%", "Vedação / NBR 14518")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -286,7 +281,7 @@ if modulo == "🌐 Panorama Executivo do Shopping":
     col_g1, col_g2 = st.columns([1, 1])
 
     with col_g1:
-        st.markdown("### 🎯 Distribuicão de Criticidade (ICL Global)")
+        st.markdown("### 🎯 Distribuição de Criticidade (ICL Global)")
         fig_pie = px.pie(
             df_f, names="criticidade", color="criticidade",
             color_discrete_map=PALETA_CSA, hole=0.5
@@ -298,7 +293,13 @@ if modulo == "🌐 Panorama Executivo do Shopping":
     with col_g2:
         st.markdown("### 📊 Nível de Conformidade por Pilar Normativo (%)")
         df_pilares = pd.DataFrame({
-            'Pilar Normativo': ['Incêndio (NFPA 96)', 'Intertravamento Gás', 'Elétrica (NR-10)', 'Máquinas (NR-12)', 'Estanqueidade Dutos'],
+            'Pilar Normativo': [
+                'Incêndio (NFPA 96 / NBR 14518)',
+                'Intertravamento Gás (NBR 14518)',
+                'Elétrica (NR-10)',
+                'Máquinas (NR-12)',
+                'Estanqueidade (NBR 14518)'
+            ],
             'Conformidade (%)': [avg_inc, avg_int, avg_ele, avg_maq, avg_est]
         })
         fig_pilares = px.bar(
@@ -308,6 +309,29 @@ if modulo == "🌐 Panorama Executivo do Shopping":
         fig_pilares.update_traces(texttemplate='%{text:.0f}%', textposition='outside')
         fig_pilares.update_layout(yaxis=dict(autorange="reversed"), xaxis=dict(range=[0, 110]), showlegend=False, margin=dict(t=20, b=20, l=20, r=20))
         st.plotly_chart(fig_pilares, use_container_width=True)
+
+    st.markdown("---")
+
+    # 4. Análise e Conclusão Técnica Geral do Shopping
+    st.markdown("<div class='laudo-card'>", unsafe_allow_html=True)
+    st.markdown(f"""
+    ### 📑 Análise & Parecer Técnico Geral do Empreendimento
+    **Escopo:** Avaliação Global do Sistema de Exaustão da Praça de Alimentação — **Shopping Guararapes**  
+    **Engenharia Responsável:** CSA Engenharia | **Ciclo:** `{mes_sel}`
+
+    ---
+
+    #### 🔍 Análise Técnica Consolidada
+    A auditoria global realizada no complexo revela um estado de exposição ao risco que demanda ações estruturadas por parte da superintendência e da gestão de operações do shopping. Com uma média geral de **ICL em {media_icl:.1f}%**, o empreendimento se posiciona em nível de atenção técnica. 
+
+    A análise detalhada dos **5 Pilares Normativos** indica que os maiores gargalos de conformidade concentram-se no **Intertravamento de Gás (ABNT NBR 14518)** e na **Segurança Elétrica (NR-10)**. A ausência de interrupção automática do suprimento de gás em caso de parada dos exaustores foi constatada em uma parcela significativa das lojas, gerando risco latente de acúmulo de vapores inflamáveis e monóxido de carbono no ambiente fabril das cozinhas.
+
+    #### 🛡️ Conclusão Técnica e Recomendações Gestoras
+    1. **Notificação Emergencial (Prazo 48h):** Emissão de termo de adequação prioritário para as operações classificadas nos níveis **CRÍTICO** e **SEVERO** ({criticas_severas} lojas), exigindo a certificação dos sistemas supressores e desobstrução das casas de máquinas.
+    2. **Padronização do Intertravamento:** Estabelecer diretriz técnica única para que todas as lojas instalem válvulas solenoides NF (Normalmente Fechadas) interligadas aos pressostatos ou sensores de corrente do exaustor.
+    3. **Programa contínuo de Mitigação de Carga Incêndio:** Agendar higienização robótica/hidrojateamento nos dutos coletores do shopping para impedir o acúmulo de gordura acima da espessura limite de 0,18 mm fixada pela norma **NFPA 96**.
+    """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
 # MÓDULO 2: DIAGNÓSTICO DETALHADO POR LOJA
@@ -320,7 +344,6 @@ elif modulo == "🏪 Diagnóstico Detalhado por Loja":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Visualização com Gráficos Intuitivos em Duas Colunas
     col_loja1, col_loja2 = st.columns([1, 1.2])
 
     with col_loja1:
@@ -350,10 +373,16 @@ elif modulo == "🏪 Diagnóstico Detalhado por Loja":
         st.plotly_chart(fig_gauge, use_container_width=True)
 
     with col_loja2:
-        st.markdown("##### 📊 Status Atual de Adequação nos 5 Pilares")
+        st.markdown("##### 📊 Status Atual de Adequação nos 5 Pilares Normativos")
         
         pilares_loja = pd.DataFrame({
-            'Pilar': ['Proteção Incêndio', 'Intertravamento', 'Elétrica (NR-10)', 'Máquinas (NR-12)', 'Estanqueidade'],
+            'Pilar Normativo': [
+                'Incêndio (NFPA 96 / NBR 14518)',
+                'Intertravamento (NBR 14518)',
+                'Elétrica (NR-10)',
+                'Máquinas (NR-12)',
+                'Estanqueidade (NBR 14518)'
+            ],
             'Status': [
                 'Conforme' if d['incendio_conforme'] else 'Inconforme',
                 'Conforme' if d['intertravamento_ok'] else 'Inconforme',
@@ -371,7 +400,7 @@ elif modulo == "🏪 Diagnóstico Detalhado por Loja":
         })
 
         fig_status = px.bar(
-            pilares_loja, x='Valor', y='Pilar', color='Status',
+            pilares_loja, x='Valor', y='Pilar Normativo', color='Status',
             color_discrete_map={'Conforme': '#38A169', 'Inconforme': '#E53E3E'},
             orientation='h', text='Status'
         )
@@ -383,7 +412,6 @@ elif modulo == "🏪 Diagnóstico Detalhado por Loja":
         )
         st.plotly_chart(fig_status, use_container_width=True)
 
-    # Texto Dissertativo do Laudo
     st.markdown("<div class='laudo-card'>", unsafe_allow_html=True)
     st.markdown(gerar_parecer_dissertativo(d), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -398,34 +426,53 @@ elif modulo == "📐 Metodologia ICL & Ponderação":
     O **Índice de Criticidade de Loja (ICL)** é uma métrica quantitativa desenvolvida pela **CSA Engenharia** para mensurar o nível contínuo de exposição ao risco de incêndio, explosão e interrupção operacional no sistema de exaustão de cozinhas comerciais.
 
     ---
-    #### 🧮 A Equação Fundamental e Suas Variáveis
+    #### 🧮 A Equação Fundamental
     $$ICL = (P_{INC} \times 0.35) + (P_{INT} \times 0.25) + (P_{ELE} \times 0.20) + (P_{OBS} \times 0.10) + (P_{VAZ} \times 0.10)$$
 
-    ##### Como cada variável é calculada?
-    Cada pilar avaliado durante a vistoria presencial recebe uma pontuação individual de risco que varia de **0 (Sem risco / Conforme)** a **100 (Risco Severo / Inconforme)**:
+    ---
+    #### 🔍 Detalhamento Técnico dos Cálculo e Escala de Pontuação (0 a 100)
 
-    1. **$P_{INC}$ (Risco de Incêndio - Peso 35%):**
-       * **Atribuição:** Se o sistema de supressão por saponificante estiver inoperante/descarregado ou se houver acúmulo severo de gordura nos dutos, $P_{INC} = 100$. Caso contrário, $P_{INC} = 0$.
-       * *Física do Risco:* Gordura acumulada no duto atinge ignição espontânea a **315 °C**. A ausência de extinção automática resulta em chamas diretas no entreforro.
+    A pontuação de cada pilar **não se limita a 0 e 100**. Durante a inspeção técnica, cada índice assume um valor **graduado de 0 a 100**, calculado com base em critérios objetivos medidos em campo:
 
-    2. **$P_{INT}$ (Intertravamento de Gás - Peso 25%):**
-       * **Atribuição:** Se a válvula solenoide de corte de gás não desligar automaticamente ao parar a exaustão, $P_{INT} = 100$. Se o intertravamento estiver funcional, $P_{INT} = 0$.
-       * *Física do Risco:* O funcionamento de queimadores sem exaustão gera acúmulo de monóxido de carbono e risco direto de **explosão por bolsão de gás**.
+    1. **$P_{INC}$ — Risco de Incêndio & Supressão Química (Peso 35%) | *Normas: ABNT NBR 14518, NFPA 96 e IT-38 CBM*:**
+       * **Como é atribuído a número no cálculo:**
+         * `0`: Dutos perfeitamente limpos ($<0,05\text{ mm}$ de espessura de gordura) e sistema saponificante com carga, certificado e disparadores limpos.
+         * `25`: Camada leve de gordura ($0,05\text{ a }0,18\text{ mm}$) e sistema saponificante 100% operacional.
+         * `50`: Camada moderada de gordura ($0,18\text{ a }0,50\text{ mm}$) ou sistema saponificante com manutenção vencida a menos de 30 dias.
+         * `75`: Acúmulo severo de gordura ($>0,50\text{ mm}$) com sistema saponificante operacional OU sistema inoperante com duto limpo.
+         * `100`: Sistema saponificante descarregado/ausente E duto com incrustação crítica de gordura ($>1,0\text{ mm}$).
+       * *Física do Risco:* A gordura depositada nos dutos entra em ignição espontânea a **315 °C**. Sem a extinção química automática, o fogo atinge o entreforro em menos de 180 segundos.
 
-    3. **$P_{ELE}$ (Segurança Elétrica - Peso 20%):**
-       * **Atribuição:** Fiação exposta, ausência de prensa-cabos ou quadros sem vedação atribuem $P_{ELE} = 100$. Instalações blindadas atribuem $P_{ELE} = 0$.
-       * *Física do Risco:* Curtos-circuitos resultantes de umidade/gordura sobre condutores são a causa primária de **80% dos focos iniciais de incêndio** em cozinhas.
+    2. **$P_{INT}$ — Intertravamento de Segurança de Gás (Peso 25%) | *Normas: ABNT NBR 14518 Cap. 5.4 e ABNT NBR 17039*:**
+       * **Como é atribuído a número no cálculo:**
+         * `0`: Intertravamento 100% funcional (ao desligar o exaustor, a válvula solenoide corta o gás instantaneamente).
+         * `50`: Intertravamento com retardo de acionamento ($>5\text{ segundos}$) ou sem botão de emergência manual de rápido acesso.
+         * `100`: Ausência total de intertravamento (linha de gás permanece aberta mesmo com exaustor desligado).
+       * *Física do Risco:* Queimadores operando sem exaustão geram acúmulo de monóxido de carbono e vapores não queimados, criando uma atmosfera explosiva (LII/LEL).
 
-    4. **$P_{OBS}$ (Acesso à Casa de Máquinas - Peso 10%):**
-       * **Atribuição:** Casa de máquinas usada como depósito ou sem proteção de polias atribui $P_{OBS} = 100$. Áreas livres e protegidas atribuem $P_{OBS} = 0$.
+    3. **$P_{ELE}$ — Segurança Elétrica da Instalação (Peso 20%) | *Normas: NR-10 e ABNT NBR 5410*:**
+       * **Como é atribuído a número no cálculo:**
+         * `0`: Instalação 100% em eletrodutos blindados e painéis selados com grau de proteção IP65.
+         * `33`: Conexões elétricas sem prensa-cabos ou quadros de comando com vedação ressecada.
+         * `66`: Fiação exposta sem proteção mecânica na proximidade de áreas úmidas.
+         * `100`: Fiação exposta impregnada com gordura/óleo sobre a coifa ou na casa de máquinas.
+       * *Física do Risco:* Curtos-circuitos resultantes da degradação do isolamento por gordura e vapor são a **causa número 1 de ignição** em cozinhas comerciais.
 
-    5. **$P_{VAZ}$ (Estanqueidade dos Dutos - Peso 10%):**
-       * **Atribuição:** Presença de gotejamento ou vazamento de gordura nas conexões atribui $P_{VAZ} = 100$. Dutos vedados atribuem $P_{VAZ} = 0$.
+    4. **$P_{OBS}$ — Proteção de Máquinas & Acesso (Peso 10%) | *Normas: NR-12 e NR-35*:**
+       * **Como é atribuído a número no cálculo:**
+         * `0`: Casa de máquinas com acesso desobstruído, iluminação adequada e proteção total de polias/correias.
+         * `50`: Acesso parcialmente dificultado por materiais armazenados de forma temporária.
+         * `100`: Casa de máquinas usada como depósito de descartes ou motores com partes giratórias desprotegidas.
+
+    5. **$P_{VAZ}$ — Estanqueidade e Vedações dos Dutos (Peso 10%) | *Norma: ABNT NBR 14518*:**
+       * **Como é atribuído a número no cálculo:**
+         * `0`: Dutos soldados a ponto elétrico/TIG, sem nenhum ponto de exsudação.
+         * `50`: Pequena goteira/umidade de óleo nas juntas flangeadas sem vazamento direto para a cozinha.
+         * `100`: Vazamento ativo de gordura gotejando sobre o entreforro, equipamentos ou alimentos.
 
     ---
     #### 📏 Margens de Tolerância e Calibração
-    * **Margem de Erro do Modelo:** $\pm 2.5\%$, calibrada através de dados históricos de inspeções e análises FMEA.
-    * **Critério de Suspensão Emergencial:** Qualquer loja que registre $P_{INC} = 100$ e $P_{INT} = 100$ simultaneamente atinge automaticamente o grau **SEVERO ($ICL \ge 86\%$)**, independentemente dos outros fatores.
+    * **Margem de Erro do Modelo:** $\pm 2.5\%$, calibrada com base em amostras FMEA e histórico de vistorias técnicas da **CSA Engenharia**.
     """)
 
 # ==========================================
@@ -465,7 +512,7 @@ elif modulo == "📄 Importação de PDF / Laudo":
             f_crit = st.selectbox("Nível de Criticidade:", ["Controlado", "Atenção", "Relevante", "Crítico", "Severo"])
             
             c1, c2 = st.columns(2)
-            f_inc = c1.checkbox("Sistema de Incêndio OK (NFPA 96)", value=True)
+            f_inc = c1.checkbox("Sistema de Incêndio OK (NFPA 96 / NBR 14518)", value=True)
             f_int = c2.checkbox("Intertravamento OK (NBR 14518)", value=True)
             f_ele = c1.checkbox("Fiação Exposta (NR-10)")
             f_obs = c2.checkbox("Casa de Máquinas Obstruída (NR-12)")
@@ -483,13 +530,12 @@ elif modulo == "📄 Importação de PDF / Laudo":
                 st.success(f"Vistoria da loja {f_loja} cadastrada com sucesso!")
 
 # ==========================================
-# MÓDULO 6: MATRIZ INTERATIVA DE DADOS (LAYOUT EM CARDS)
+# MÓDULO 6: MATRIZ INTERATIVA DE DADOS (CARDS)
 # ==========================================
 elif modulo == "📋 Matriz Interativa de Dados":
     st.markdown("### 📋 Matriz Geral de Operações (Visão em Cards Distribuídos)")
     st.write("Navegue pelas operações de forma fluida, interativa e visualmente moderna.")
 
-    # Filtros Dinâmicos
     col_f1, col_f2 = st.columns([2, 1])
     busca = col_f1.text_input("🔍 Pesquisar por nome da loja:")
     filtro_crit = col_f2.multiselect("Filtrar Criticidade:", df_f["criticidade"].unique(), default=df_f["criticidade"].unique())
@@ -500,7 +546,6 @@ elif modulo == "📋 Matriz Interativa de Dados":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Exibição em Grade / Cards Fluidos
     for idx, row in df_exibicao.iterrows():
         c_status = row['criticidade'].lower()
         
@@ -523,8 +568,8 @@ elif modulo == "📋 Matriz Interativa de Dados":
         """, unsafe_allow_html=True)
         
         with st.expander(f"🔍 Ver Detalhes Técnicos — {row['loja']}"):
-            st.write(f"• **Incêndio (NFPA 96):** {'✅ Conforme' if row['incendio_conforme'] else '❌ Inconforme'}")
-            st.write(f"• **Intertravamento (NBR 14518):** {'✅ Conforme' if row['intertravamento_ok'] else '❌ Inconforme'}")
+            st.write(f"• **Incêndio (NFPA 96 / NBR 14518):** {'✅ Conforme' if row['incendio_conforme'] else '❌ Inconforme'}")
+            st.write(f"• **Intertravamento Gás (NBR 14518):** {'✅ Conforme' if row['intertravamento_ok'] else '❌ Inconforme'}")
             st.write(f"• **Fiação Elétrica (NR-10):** {'❌ Exposta' if row['eletrica_exposta'] else '✅ Protegida'}")
             st.write(f"• **Casa de Máquinas (NR-12):** {'❌ Obstruída' if row['casa_maquinas_obstruida'] else '✅ Livre'}")
             st.write(f"• **Observações:** {row['observacoes']}")
