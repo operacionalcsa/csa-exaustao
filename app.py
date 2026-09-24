@@ -90,6 +90,15 @@ st.markdown("""
     .bg-relevante { background-color: #FF6B35; color: #FFF; }
     .bg-atencao { background-color: #3182CE; color: #FFF; }
     .bg-controlado { background-color: #38A169; color: #FFF; }
+
+    .calc-box {
+        background-color: #F1F5F9;
+        border-left: 5px solid #0D3B66;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: 'Courier New', Courier, monospace;
+        margin: 10px 0;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -144,6 +153,88 @@ SECOES_RELATORIO = {
     ]
 }
 
+def analisar_respostas_detalhadas(questoes):
+    """Analisa exaustivamente todas as respostas do questionário para evitar falsos positivos/negativos."""
+    def get_val(key):
+        item = questoes.get(key, {})
+        if isinstance(item, dict):
+            resp = str(item.get("resposta", "")).strip().upper()
+            obs = str(item.get("observacao", "")).strip()
+            return resp, obs
+        return str(item).strip().upper(), ""
+
+    # Pilar 1: Incêndio / Supressão
+    resp_inc, obs_inc = get_val("SISTEMA DE COMBATE A INCÊNDIO EM CONFORMIDADE?")
+    ha_inc, _ = get_val("HÁ SISTEMA COMBATE A INCÊNDIO (SAPONIFICANTE)?")
+    
+    p_inc = 0
+    if resp_inc in ["NÃO", "INCONFORME", "NÃO CONFORME"] or ha_inc == "NÃO":
+        p_inc = 100
+    elif "NÃO CONFORME" in obs_inc.upper() or "INOPERANTE" in obs_inc.upper():
+        p_inc = 75
+
+    # Pilar 2: Intertravamento
+    resp_int, obs_int = get_val("INTERTRAVAMENTO FUNCIONANDO?")
+    ha_int, _ = get_val("HÁ INTERTRAVAMENTO?")
+    
+    p_int = 0
+    if resp_int in ["NÃO", "INCONFORME", "NÃO CONFORME"] or ha_int in ["NÃO", "NÃO CONFORME"]:
+        p_int = 100
+
+    # Pilar 3: Elétrica (Coifa + Exaustor)
+    resp_ele_c, _ = get_val("ELÉTRICA EXPOSTA PRÓXIMO A COIFA?")
+    resp_ele_ex, obs_ele_ex = get_val("ELÉTRICA DO EXAUSTOR")
+    resp_ele_exp, _ = get_val("ELÉTRICA EXPOSTA?")
+    
+    p_ele = 0
+    if (resp_ele_c in ["SIM", "EXPOSTA"] or 
+        resp_ele_exp in ["SIM", "EXPOSTA"] or 
+        "NÃO CONFORME" in resp_ele_ex or 
+        "EXPOSTA" in obs_ele_ex.upper()):
+        p_ele = 100
+
+    # Pilar 4: Máquinas & Acesso & Estado Mecânico
+    resp_maq, _ = get_val("CASA DE MÁQUINA DESOBSTRUÍDA?")
+    resp_lub, obs_lub = get_val("LUBRIFICAÇÃO")
+    resp_ali, obs_ali = get_val("ALINHAMENTO")
+    resp_cor, obs_cor = get_val("CORREIAS")
+    
+    p_obs = 0
+    fator_mec = 0
+    if resp_maq in ["NÃO", "OBSTRUÍDA"]:
+        fator_mec += 40
+    if "NÃO CONFORME" in resp_lub or "NÃO CONFORME" in obs_lub.upper():
+        fator_mec += 20
+    if "NÃO CONFORME" in resp_ali or "NÃO CONFORME" in obs_ali.upper():
+        fator_mec += 20
+    if "NÃO CONFORME" in resp_cor or "NÃO CONFORME" in obs_cor.upper():
+        fator_mec += 20
+    
+    p_obs = min(100, fator_mec)
+
+    # Pilar 5: Estanqueidade & Acessibilidade nos Dutos & Dreno
+    resp_vaz, _ = get_val("HÁ VAZAMENTO NOS DUTOS?")
+    resp_dre, obs_dre = get_val("HÁ DRENO DE OLÉO?")
+    resp_jan_d, _ = get_val("HÁ JANELAS DE INSPEÇÃO NOS DUTOS DA DESCARGA?")
+    resp_damp_a, _ = get_val("DAMPER TEM ACESSO PARA LIMPEZA?")
+    resp_ac_coz, _ = get_val("HÁ ACESSO AOS DUTOS DA COZINHA?")
+    
+    fator_est = 0
+    if resp_vaz in ["SIM", "VAZANDO"]:
+        fator_est += 40
+    if resp_dre in ["NÃO", "NÃO CONFORME"]:
+        fator_est += 20
+    if resp_jan_d in ["NÃO", "NÃO CONFORME"]:
+        fator_est += 15
+    if resp_damp_a in ["NÃO", "NÃO CONFORME"]:
+        fator_est += 15
+    if resp_ac_coz in ["NÃO", "NÃO CONFORME"]:
+        fator_est += 10
+        
+    p_vaz = min(100, fator_est)
+
+    return p_inc, p_int, p_ele, p_obs, p_vaz
+
 def carregar_dados():
     try:
         response = supabase.table("vistorias_exaustao").select("*").order("created_at", desc=True).execute()
@@ -154,34 +245,33 @@ def carregar_dados():
     if df.empty:
         return pd.DataFrame()
 
-    # Processar respostas do questionário para extrair indicadores dos 5 pilares
     for idx, row in df.iterrows():
         dados = row.get("dados", {})
         questoes = dados.get("questoes", {}) if isinstance(dados, dict) else {}
 
-        # Mapeamento dinâmico baseado no formulário preenchido
-        incendio = str(questoes.get("SISTEMA DE COMBATE A INCÊNDIO EM CONFORMIDADE?", {}).get("resposta", "")).upper()
-        intertrava = str(questoes.get("INTERTRAVAMENTO FUNCIONANDO?", {}).get("resposta", "")).upper()
-        eletrica = str(questoes.get("ELÉTRICA EXPOSTA PRÓXIMO A COIFA?", {}).get("resposta", "")).upper()
-        maquina = str(questoes.get("CASA DE MÁQUINA DESOBSTRUÍDA?", {}).get("resposta", "")).upper()
-        vazamento = str(questoes.get("HÁ VAZAMENTO NOS DUTOS?", {}).get("resposta", "")).upper()
+        if questoes:
+            p_inc, p_int, p_ele, p_obs, p_vaz = analisar_respostas_detalhadas(questoes)
+        else:
+            p_inc = 0 if row.get('incendio_conforme', True) else 100
+            p_int = 0 if row.get('intertravamento_ok', True) else 100
+            p_ele = 100 if row.get('eletrica_exposta', False) else 0
+            p_obs = 100 if row.get('casa_maquinas_obstruida', False) else 0
+            p_vaz = 100 if row.get('vazamento_dutos', False) else 0
 
-        # Atribuição dos valores aos pilares
-        df.at[idx, 'incendio_conforme'] = incendio in ["SIM", "OK", "CONFORME"] if incendio else row.get('incendio_conforme', True)
-        df.at[idx, 'intertravamento_ok'] = intertrava in ["SIM", "OK", "CONFORME"] if intertrava else row.get('intertravamento_ok', True)
-        df.at[idx, 'eletrica_exposta'] = eletrica in ["SIM", "SIM - EXPOSTA", "EXPOSTA"] if eletrica else row.get('eletrica_exposta', False)
-        df.at[idx, 'casa_maquinas_obstruida'] = maquina in ["NÃO", "OBSTRUÍDA"] if maquina else row.get('casa_maquinas_obstruida', False)
-        df.at[idx, 'vazamento_dutos'] = vazamento in ["SIM", "VAZANDO"] if vazamento else row.get('vazamento_dutos', False)
+        df.at[idx, 'score_incend'] = p_inc
+        df.at[idx, 'score_intert'] = p_int
+        df.at[idx, 'score_eletri'] = p_ele
+        df.at[idx, 'score_maquin'] = p_obs
+        df.at[idx, 'score_estana'] = p_vaz
 
-        # Cálculo do ICL e Criticidade caso não venham calculados
-        p_inc = 0 if df.at[idx, 'incendio_conforme'] else 100
-        p_int = 0 if df.at[idx, 'intertravamento_ok'] else 100
-        p_ele = 100 if df.at[idx, 'eletrica_exposta'] else 0
-        p_obs = 100 if df.at[idx, 'casa_maquinas_obstruida'] else 0
-        p_vaz = 100 if df.at[idx, 'vazamento_dutos'] else 0
+        df.at[idx, 'incendio_conforme'] = (p_inc < 50)
+        df.at[idx, 'intertravamento_ok'] = (p_int < 50)
+        df.at[idx, 'eletrica_exposta'] = (p_ele >= 50)
+        df.at[idx, 'casa_maquinas_obstruida'] = (p_obs >= 50)
+        df.at[idx, 'vazamento_dutos'] = (p_vaz >= 50)
 
         icl_calc = (p_inc * 0.35) + (p_int * 0.25) + (p_ele * 0.20) + (p_obs * 0.10) + (p_vaz * 0.10)
-        df.at[idx, 'icl_score'] = row.get('icl_score', icl_calc) if pd.notnull(row.get('icl_score')) else icl_calc
+        df.at[idx, 'icl_score'] = round(icl_calc, 1)
 
         score = df.at[idx, 'icl_score']
         if score >= 70:
@@ -195,52 +285,59 @@ def carregar_dados():
         else:
             crit = "Controlado"
 
-        df.at[idx, 'criticidade'] = row.get('criticidade', crit) if pd.notnull(row.get('criticidade')) else crit
+        df.at[idx, 'criticidade'] = crit
         df.at[idx, 'observacoes'] = row.get('observacoes', dados.get("observacoes_gerais", ""))
 
     return df
 
 # ==========================================
-# 3. GERADOR DE PARECER TÉCNICO DISSERTATIVO
+# 3. GERADOR DE PARECER TÉCNICO APROFUNDADO
 # ==========================================
 def gerar_parecer_dissertativo(row):
     loja = row['loja']
     icl = row['icl_score']
     crit = str(row['criticidade'])
-    
+    dados = row.get('dados', {})
+    questoes = dados.get('questoes', {}) if isinstance(dados, dict) else {}
+
     anomalias = []
-    if not row['incendio_conforme']:
-        anomalias.append("inoperância do sistema fixo de supressão química saponificante e acúmulo de gordura nos dutos (NFPA 96 / ABNT NBR 14518)")
-    if not row['intertravamento_ok']:
-        anomalias.append("ausência de intertravamento automático entre ventilação/exaustão e a linha de gás combustível (ABNT NBR 14518, Cap. 5.4)")
-    if row['eletrica_exposta']:
-        anomalias.append("exposição inadequada de condutores e quadros de comando sem vedação contra vapores (Norma Regulamentadora NR-10)")
-    if row['casa_maquinas_obstruida']:
-        anomalias.append("obstrução física nas vias da casa de máquinas e falta de carenagem de proteção em partes móveis (Norma Regulamentadora NR-12)")
-    if row['vazamento_dutos']:
-        anomalias.append("falha de estanqueidade nas acoplagens dos dutos, gerando exsudação de óleos combustíveis no entreforro (ABNT NBR 14518)")
+    
+    # Checagens específicas e precisas baseadas no questionário
+    if row.get('score_incend', 0) >= 50:
+        anomalias.append("irregularidades no sistema fixo de combate a incêndio por saponificante (ABNT NBR 14518 / NFPA 96)")
+    if row.get('score_intert', 0) >= 50:
+        anomalias.append("ausência de intertravamento automático entre o sistema de exaustão mecânica e a válvula solenoide da linha de gás combustível (ABNT NBR 14518, Cap. 5.4)")
+    if row.get('score_eletri', 0) >= 50:
+        anomalias.append("fiação e condutores elétricos expostos no exaustor/coifa sem proteção por eletrodutos rígidos não combustíveis, aumentando expressivamente o risco de curto-circuito e ignição por centelha em ambiente impregnado de vapores (ABNT NBR 5410 / NR-10)")
+    if row.get('score_maquin', 0) >= 50:
+        anomalias.append("obstrução da casa de máquinas, além de desgastes mecânicos críticos no exaustor como folga/frouxidão em correias de transmissão, desalinhamento de componentes rotativos e falta de lubrificação periódica nos rolamentos (Norma Regulamentadora NR-12)")
+    if row.get('score_estana', 0) >= 50:
+        anomalias.append("ausência de dreno de óleo no fundo do exaustor, falta de janelas de inspeção para limpeza do damper corta-fogo e inexistência de acesso aos dutos da cozinha e descarga, favorecendo o acúmulo contínuo de gordura pesada e vazamentos de óleo (ABNT NBR 14518)")
 
     if anomalias:
-        texto_diagnostico = f"Durante a auditoria técnica presencial na operação **{loja}**, foram constatadas não conformidades normativas relevantes, tais como: " + "; ".join(anomalias) + "."
+        texto_diagnostico = f"A auditoria técnica presencial realizada nas instalações da operação **{loja}** identificou desvios normativos de alta relevância que comprometem a segurança contra incêndio e a integridade operacional do sistema de exaustão. Entre as principais não conformidades constatadas, destacam-se: " + "; ".join(anomalias) + "."
     else:
-        texto_diagnostico = f"A unidade **{loja}** apresentou desempenho exemplar na vistoria técnica, operando em total conformidade com as diretrizes da ABNT NBR 14518, NFPA 96, NR-10 e NR-12."
+        texto_diagnostico = f"A operação **{loja}** apresentou excelente padrão de conformidade técnica, operando de acordo com as diretrizes de segurança da ABNT NBR 14518, ABNT NBR 5410, NFPA 96, NR-10 e NR-12."
 
     if icl >= 70:
         recomendacao_executiva = (
-            f"Diante do Índice de Criticidade de Loja apurado em **{icl}%** (classificação **{crit.upper()}**), "
-            f"a **CSA Engenharia** recomenda notificação formal imediata ao lojista. É necessária a execução emergencial, "
-            f"em até 48 horas, de higienização técnica profunda, adequação do intertravamento de gás e isolamento das instalações elétricas. "
-            f"A inércia mantém a operação em zona de risco crítico para sinistros térmicos."
+            f"Diante do Índice de Criticidade de Loja apurado em **{icl}%** (Grau **{crit.upper()}**), "
+            f"a **CSA Engenharia** recomenda a emissão de notificação formal imediata pela administração do Shopping Guararapes. "
+            f"É imperativo o cumprimento de um plano de ação emergencial em até 48 horas contemplando: "
+            f"(1) Proteção e embutimento total da fiação elétrica exposta do exaustor em eletrodutos rígidos (NBR 5410); "
+            f"(2) Instalação de sistema de intertravamento automático para corte de gás na parada da exaustão; "
+            f"(3) Abertura de janelas de inspeção para higienização e manutenção do damper corta-fogo; "
+            f"(4) Instalação de dreno de óleo no exaustor, tensionamento das correias e alinhamento mecânico do conjunto rotativo."
         )
     elif icl >= 40:
         recomendacao_executiva = (
-            f"Com um ICL de **{icl}%** (classificação **{crit.upper()}**), a unidade apresenta desvios moderados que demandam plano de ação corretiva "
-            f"em até 15 dias, priorizando o desobstruimento da casa de máquinas e a recalafetação das juntas dos dutos."
+            f"Com um ICL apurado em **{icl}%** (Grau **{crit.upper()}**), a operação demanda regularizações corretivas no prazo máximo de 15 dias, "
+            f"priorizando a proteção das instalações elétricas do exaustor, adequação da casa de máquinas e readequação das vias de acesso e limpeza dos dutos."
         )
     else:
         recomendacao_executiva = (
-            f"Com índice controlado (**ICL {icl}%**), a operação atende aos requisitos de segurança normativos. "
-            f"Recomenda-se a manutenção do cronograma quinzenal de inspeção preventiva."
+            f"Com o índice sob controle (**ICL {icl}%**), a operação encontra-se em conformidade com as diretrizes gerais de engenharia. "
+            f"Recomenda-se manter a rotina de manutenção preventiva e higienização periódica."
         )
 
     return f"""
@@ -249,10 +346,12 @@ def gerar_parecer_dissertativo(row):
 
     ---
     
-    #### 🔎 Diagnóstico Técnico das Instalações
+    #### 🔎 Diagnóstico Técnico Aprofundado das Instalações
     {texto_diagnostico}
 
-    #### 🛡️ Parecer Conclusivo & Plano de Mitigação
+    ---
+
+    #### 🛡️ Parecer Conclusivo & Plano de Mitigação de Riscos
     {recomendacao_executiva}
     """
 
@@ -302,11 +401,11 @@ else:
     df_f = df.copy()
 
 if not df_f.empty:
-    df_f["pilar_incendio"] = df_f["incendio_conforme"].apply(lambda x: 100 if x else 0)
-    df_f["pilar_intertravamento"] = df_f["intertravamento_ok"].apply(lambda x: 100 if x else 0)
-    df_f["pilar_eletrica"] = df_f["eletrica_exposta"].apply(lambda x: 0 if x else 100)
-    df_f["pilar_maquinas"] = df_f["casa_maquinas_obstruida"].apply(lambda x: 0 if x else 100)
-    df_f["pilar_estanqueidade"] = df_f["vazamento_dutos"].apply(lambda x: 0 if x else 100)
+    df_f["pilar_incendio"] = df_f["score_incend"].apply(lambda x: 100 - x)
+    df_f["pilar_intertravamento"] = df_f["score_intert"].apply(lambda x: 100 - x)
+    df_f["pilar_eletrica"] = df_f["score_eletri"].apply(lambda x: 100 - x)
+    df_f["pilar_maquinas"] = df_f["score_maquin"].apply(lambda x: 100 - x)
+    df_f["pilar_estanqueidade"] = df_f["score_estana"].apply(lambda x: 100 - x)
 
 # ==========================================
 # MÓDULO 1: PANORAMA EXECUTIVO GLOBAL
@@ -367,9 +466,9 @@ if modulo == "🌐 Panorama Executivo do Shopping":
         p1, p2, p3, p4, p5 = st.columns(5)
         p1.metric("Proteção Incêndio", f"{avg_inc:.0f}%", "NFPA 96 / NBR 14518")
         p2.metric("Intertravamento Gás", f"{avg_int:.0f}%", "NBR 14518 Cap. 5.4")
-        p3.metric("Segurança Elétrica", f"{avg_ele:.0f}%", "Norma NR-10")
+        p3.metric("Segurança Elétrica", f"{avg_ele:.0f}%", "Norma NR-10 / NBR 5410")
         p4.metric("Acesso & Máquinas", f"{avg_maq:.0f}%", "Norma NR-12")
-        p5.metric("Estanqueidade Dutos", f"{avg_est:.0f}%", "Vedação / NBR 14518")
+        p5.metric("Estanqueidade & Dutos", f"{avg_est:.0f}%", "Vedação / NBR 14518")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -391,7 +490,7 @@ if modulo == "🌐 Panorama Executivo do Shopping":
                 'Pilar Normativo': [
                     'Incêndio (NFPA 96 / NBR 14518)',
                     'Intertravamento Gás (NBR 14518)',
-                    'Elétrica (NR-10)',
+                    'Elétrica (NR-10 / NBR 5410)',
                     'Máquinas (NR-12)',
                     'Estanqueidade (NBR 14518)'
                 ],
@@ -409,21 +508,21 @@ if modulo == "🌐 Panorama Executivo do Shopping":
 
         st.markdown("<div class='laudo-card'>", unsafe_allow_html=True)
         st.markdown(f"""
-        ### 📑 Análise & Parecer Técnico Geral do Empreendimento
-        **Escopo:** Avaliação Global do Sistema de Exaustão da Praça de Alimentação — **Shopping Guararapes**  
+        ### 📑 Parecer Técnico Global do Empreendimento
+        **Escopo de Auditoria:** Avaliação Sistêmica de Riscos em Exaustão Comercial — **Shopping Guararapes**  
         **Engenharia Responsável:** CSA Engenharia
 
         ---
 
-        #### 🔍 Análise Técnica Consolidada
-        A auditoria global realizada no complexo revela um estado de exposição ao risco que demanda ações estruturadas por parte da superintendência e da gestão de operações do shopping. Com uma média geral de **ICL em {media_icl:.1f}%**, o empreendimento se posiciona em nível de atenção técnica. 
+        #### 1. Diagnóstico Geral do Complexo
+        A auditoria técnica conduzida no parque de exaustão das operações alimentícias revelou uma média global de **ICL de {media_icl:.1f}%**, enquadrando o empreendimento em nível de atenção preventiva. Os dados apontam que os principais fatores causadores de risco crítico no complexo são a **ausência generalizada de intertravamento do gás combustível** e a **exposição de condutores elétricos na área de exaustores e casas de máquinas**.
 
-        A análise detalhada dos **5 Pilares Normativos** indica que os maiores gargalos de conformidade concentram-se no **Intertravamento de Gás (ABNT NBR 14518)** e na **Segurança Elétrica (NR-10)**. A ausência de interrupção automática do suprimento de gás em caso de parada dos exaustores foi constatada em uma parcela significativa das lojas, gerando risco latente de acúmulo de vapores inflamáveis e monóxido de carbono no ambiente fabril das cozinhas.
+        A presença de fiação exposta e impregnada por vapores inflamáveis nas vizinhanças de exaustores e motores elétricos representa o ponto mais crítico de ignição por arco elétrico ou curto-circuito, infringindo diretamente a norma **ABNT NBR 5410** e a **NR-10**.
 
-        #### 🛡️ Conclusão Técnica e Recomendações Gestoras
-        1. **Notificação Emergencial (Prazo 48h):** Emissão de termo de adequação prioritário para as operações classificadas nos níveis **CRÍTICO** e **SEVERO** ({criticas_severas} lojas), exigindo a certificação dos sistemas supressores e desobstrução das casas de máquinas.
-        2. **Padronização do Intertravamento:** Estabelecer diretriz técnica única para que todas as lojas instalem válvulas solenoides NF (Normalmente Fechadas) interligadas aos pressostatos ou sensores de corrente do exaustor.
-        3. **Programa contínuo de Mitigação de Carga Incêndio:** Agendar higienização robótica/hidrojateamento nos dutos coletores do shopping para impedir o acúmulo de gordura acima da espessura limite de 0,18 mm fixada pela norma **NFPA 96**.
+        #### 2. Recomendações Estratégicas e Diretrizes de Engenharia
+        * **Plano Emergencial de Instalações Elétricas:** Exigir que todas as operações com fiação exposta realizem o envelopamento e passagem dos condutores em eletrodutos rígidos metálicos ou de material não combustível com vedação IP65.
+        * **Intertravamento Obrigatório de Gás:** Notificar os lojistas inconformes para instalação de válvulas solenoides NF vinculadas ao fluxo de exaustão em até 15 dias.
+        * **Acessibilidade e Higienização do Damper:** Exigir a abertura imediata de janelas de inspeção para limpeza nos locais onde o acesso ao damper e ao exaustor está bloqueado, prevenindo a retenção contínua de massa de gordura.
         """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -472,27 +571,33 @@ elif modulo == "🏪 Diagnóstico Detalhado por Loja":
         with col_loja2:
             st.markdown("##### 📊 Status Atual de Adequação nos 5 Pilares Normativos")
             
+            p_inc = d.get('score_incend', 0)
+            p_int = d.get('score_intert', 0)
+            p_ele = d.get('score_eletri', 0)
+            p_obs = d.get('score_maquin', 0)
+            p_vaz = d.get('score_estana', 0)
+
             pilares_loja = pd.DataFrame({
                 'Pilar Normativo': [
                     'Incêndio (NFPA 96 / NBR 14518)',
                     'Intertravamento (NBR 14518)',
-                    'Elétrica (NR-10)',
+                    'Elétrica (NR-10 / NBR 5410)',
                     'Máquinas (NR-12)',
                     'Estanqueidade (NBR 14518)'
                 ],
                 'Status': [
-                    'Conforme' if d['incendio_conforme'] else 'Inconforme',
-                    'Conforme' if d['intertravamento_ok'] else 'Inconforme',
-                    'Inconforme' if d['eletrica_exposta'] else 'Conforme',
-                    'Inconforme' if d['casa_maquinas_obstruida'] else 'Conforme',
-                    'Inconforme' if d['vazamento_dutos'] else 'Conforme'
+                    'Inconforme' if p_inc >= 50 else 'Conforme',
+                    'Inconforme' if p_int >= 50 else 'Conforme',
+                    'Inconforme' if p_ele >= 50 else 'Conforme',
+                    'Inconforme' if p_obs >= 50 else 'Conforme',
+                    'Inconforme' if p_vaz >= 50 else 'Conforme'
                 ],
                 'Valor': [
-                    100 if d['incendio_conforme'] else 15,
-                    100 if d['intertravamento_ok'] else 15,
-                    15 if d['eletrica_exposta'] else 100,
-                    15 if d['casa_maquinas_obstruida'] else 100,
-                    15 if d['vazamento_dutos'] else 100
+                    100 - p_inc,
+                    100 - p_int,
+                    100 - p_ele,
+                    100 - p_obs,
+                    100 - p_vaz
                 ]
             })
 
@@ -509,6 +614,22 @@ elif modulo == "🏪 Diagnóstico Detalhado por Loja":
             )
             st.plotly_chart(fig_status, use_container_width=True)
 
+        # PAINEL EXCLUSIVO: MEMÓRIA DE CÁLCULO PASSO A PASSO
+        with st.expander(f"🧮 Ver Memória de Cálculo Detalhada do ICL para {loja_selecionada}"):
+            st.markdown(f"""
+            #### Cálculo Numérico Exato da Operação:
+            
+            * **Pilar 1 - Incêndio ($P_{{INC}}$):** Nota **{p_inc}** $\\times$ Peso 0.35 = **{p_inc * 0.35:.2f}**
+            * **Pilar 2 - Intertravamento ($P_{{INT}}$):** Nota **{p_int}** $\\times$ Peso 0.25 = **{p_int * 0.25:.2f}**
+            * **Pilar 3 - Elétrica ($P_{{ELE}}$):** Nota **{p_ele}** $\\times$ Peso 0.20 = **{p_ele * 0.20:.2f}**
+            * **Pilar 4 - Máquinas ($P_{{OBS}}$):** Nota **{p_obs}** $\\times$ Peso 0.10 = **{p_obs * 0.10:.2f}**
+            * **Pilar 5 - Estanqueidade ($P_{{VAZ}}$):** Nota **{p_vaz}** $\\times$ Peso 0.10 = **{p_vaz * 0.10:.2f}**
+            
+            <div class="calc-box">
+            ICL Final = {p_inc*0.35:.2f} + {p_int*0.25:.2f} + {p_ele*0.20:.2f} + {p_obs*0.10:.2f} + {p_vaz*0.10:.2f} = {d['icl_score']}%
+            </div>
+            """, unsafe_allow_html=True)
+
         st.markdown("<div class='laudo-card'>", unsafe_allow_html=True)
         st.markdown(gerar_parecer_dissertativo(d), unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -520,56 +641,44 @@ elif modulo == "📐 Metodologia ICL & Ponderação":
     st.markdown("### 📐 Metodologia do Índice de Criticidade de Loja (ICL)")
     
     st.markdown("""
-    O **Índice de Criticidade de Loja (ICL)** é uma métrica quantitativa desenvolvida pela **CSA Engenharia** para mensurar o nível contínuo de exposição ao risco de incêndio, explosão e interrupção operacional no sistema de exaustão de cozinhas comerciais.
+    O **Índice de Criticidade de Loja (ICL)** é a métrica quantitativa padronizada da **CSA Engenharia** para mensurar o nível de exposição de uma operação comercial aos riscos de incêndio, explosão por gás e paradas operacionais no sistema de exaustão.
 
     ---
-    #### 🧮 A Equação Fundamental
-    $$ICL = (P_{INC} \times 0.35) + (P_{INT} \times 0.25) + (P_{ELE} \times 0.20) + (P_{OBS} \times 0.10) + (P_{VAZ} \times 0.10)$$
+    #### 🧮 A Fórmula Matemática
+    $$ICL = (P_{INC} \\times 0.35) + (P_{INT} \\times 0.25) + (P_{ELE} \\times 0.20) + (P_{OBS} \\times 0.10) + (P_{VAZ} \\times 0.10)$$
 
     ---
-    #### 🔍 Detalhamento Técnico dos Cálculo e Escala de Pontuação (0 a 100)
+    #### 💡 Exemplo Prático de Cálculo (Passo a Passo)
 
-    A pontuação de cada pilar **não se limita a 0 e 100**. Durante a inspeção técnica, cada índice assume um valor **graduado de 0 a 100**, calculado com base em critérios objetivos medidos em campo:
+    Para entender como chegamos ao número final, acompanhe este exemplo hipotético de cálculo de uma loja:
 
-    1. **$P_{INC}$ — Risco de Incêndio & Supressão Química (Peso 35%) | *Normas: ABNT NBR 14518, NFPA 96 e IT-38 CBM*:**
-       * **Como é atribuído a número no cálculo:**
-         * `0`: Dutos perfeitamente limpos ($<0,05\text{ mm}$ de espessura de gordura) e sistema saponificante com carga, certificado e disparadores limpos.
-         * `25`: Camada leve de gordura ($0,05\text{ a }0,18\text{ mm}$) e sistema saponificante 100% operacional.
-         * `50`: Camada moderada de gordura ($0,18\text{ a }0,50\text{ mm}$) ou sistema saponificante com manutenção vencida a menos de 30 dias.
-         * `75`: Acúmulo severo de gordura ($>0,50\text{ mm}$) com sistema saponificante operacional OU sistema inoperante com duto limpo.
-         * `100`: Sistema saponificante descarregado/ausente E duto com incrustação crítica de gordura ($>1,0\text{ mm}$).
-       * *Física do Risco:* A gordura depositada nos dutos entra em ignição espontânea a **315 °C**. Sem a extinção química automática, o fogo atinge o entreforro em menos de 180 segundos.
+    * **Passo 1: Atribuição das Notas de Risco por Pilar (de 0 a 100)**
+      * **$P_{INC}$ (Incêndio):** O sistema saponificante está OK, mas os filtros estão danificados $\\rightarrow$ Nota = **25**
+      * **$P_{INT}$ (Intertravamento):** Não há intertravamento entre exaustor e gás $\\rightarrow$ Nota = **100** (Risco total)
+      * **$P_{ELE}$ (Elétrica):** A fiação do exaustor está totalmente exposta $\\rightarrow$ Nota = **100** (Risco total)
+      * **$P_{OBS}$ (Máquinas):** Correias frouxas e desalinhamento mecânico $\\rightarrow$ Nota = **40**
+      * **$P_{VAZ}$ (Estanqueidade):** Sem dreno de óleo e sem janelas de inspeção na descarga $\\rightarrow$ Nota = **50**
 
-    2. **$P_{INT}$ — Intertravamento de Segurança de Gás (Peso 25%) | *Normas: ABNT NBR 14518 Cap. 5.4 e ABNT NBR 17039*:**
-       * **Como é atribuído a número no cálculo:**
-         * `0`: Intertravamento 100% funcional (ao desligar o exaustor, a válvula solenoide corta o gás instantaneamente).
-         * `50`: Intertravamento com retardo de acionamento ($>5\text{ segundos}$) ou sem botão de emergência manual de rápido acesso.
-         * `100`: Ausência total de intertravamento (linha de gás permanece aberta mesmo com exaustor desligado).
-       * *Física do Risco:* Queimadores operando sem exaustão geram acúmulo de monóxido de carbono e vapores não queimados, criando uma atmosfera explosiva (LII/LEL).
+    * **Passo 2: Multiplicação pelos Pesos Normativos**
+      * $25 \\times 0.35 = \\mathbf{8.75}$
+      * $100 \\times 0.25 = \\mathbf{25.00}$
+      * $100 \\times 0.20 = \\mathbf{20.00}$
+      * $40 \\times 0.10 = \\mathbf{4.00}$
+      * $50 \\times 0.10 = \\mathbf{5.00}$
 
-    3. **$P_{ELE}$ — Segurança Elétrica da Instalação (Peso 20%) | *Normas: NR-10 e ABNT NBR 5410*:**
-       * **Como é atribuído a número no cálculo:**
-         * `0`: Instalação 100% em eletrodutos blindados e painéis selados com grau de proteção IP65.
-         * `33`: Conexões elétricas sem prensa-cabos ou quadros de comando com vedação ressecada.
-         * `66`: Fiação exposta sem proteção mecânica na proximidade de áreas úmidas.
-         * `100`: Fiação exposta impregnada com gordura/óleo sobre a coifa ou na casa de máquinas.
-       * *Física do Risco:* Curtos-circuitos resultantes da degradação do isolamento por gordura e vapor são a **causa número 1 de ignição** em cozinhas comerciais.
+    * **Passo 3: Soma Ponderada dos Resultados**
+      * $ICL = 8.75 + 25.00 + 20.00 + 4.00 + 5.00 = \\mathbf{62.75\\%}$
 
-    4. **$P_{OBS}$ — Proteção de Máquinas & Acesso (Peso 10%) | *Normas: NR-12 e NR-35*:**
-       * **Como é atribuído a número no cálculo:**
-         * `0`: Casa de máquinas com acesso desobstruído, iluminação adequada e proteção total de polias/correias.
-         * `50`: Acesso parcialmente dificultado por materiais armazenados de forma temporária.
-         * `100`: Casa de máquinas usada como depósito de descartes ou motores com partes giratórias desprotegidas.
-
-    5. **$P_{VAZ}$ — Estanqueidade e Vedações dos Dutos (Peso 10%) | *Norma: ABNT NBR 14518*:**
-       * **Como é atribuído a número no cálculo:**
-         * `0`: Dutos soldados a ponto elétrico/TIG, sem nenhum ponto de exsudação.
-         * `50`: Pequena goteira/umidade de óleo nas juntas flangeadas sem vazamento direto para a cozinha.
-         * `100`: Vazamento ativo de gordura gotejando sobre o entreforro, equipamentos ou alimentos.
+    * **Passo 4: Classificação da Criticidade**
+      * Resultado de **62.75%** enquadra a operação na faixa **CRÍTICO (50% a 69.9%)**, exigindo adequações corretivas urgentes.
 
     ---
-    #### 📏 Margens de Tolerância e Calibração
-    * **Margem de Erro do Modelo:** $\pm 2.5\%$, calibrada com base em amostras FMEA e histórico de vistorias técnicas da **CSA Engenharia**.
+    #### 📊 Tabela de Graus de Criticidade
+    * **0.0% a 19.9% — CONTROLADO (Verde):** Operação em conformidade normativa total.
+    * **20.0% a 34.9% — ATENÇÃO (Azul):** Pequenos desvios estéticos ou operacionais leves.
+    * **35.0% a 49.9% — RELEVANTE (Laranja):** Necessidade de manutenção preventiva programada.
+    * **50.0% a 69.9% — CRÍTICO (Vermelho):** Presença de riscos reais de incêndio ou vazamento de gás. Regularização em 15 dias.
+    * **70.0% a 100.0% — SEVERO (Preto):** Alto risco iminente de sinistro. Notificação emergencial em até 48 horas.
     """)
 
 # ==========================================
@@ -599,7 +708,7 @@ elif modulo == "📋 Novo Relatório (Formulário Manual)":
     with st.form("form_vistoria_manual", clear_on_submit=True):
         st.subheader("📍 Identificação da Operação")
         c1, c2, c3 = st.columns(3)
-        loja_nome = c1.text_input("NOME DA LOJA / OPERAÇÃO *", placeholder="Ex: Burger King")
+        loja_nome = c1.text_input("NOME DA LOJA / OPERAÇÃO *", placeholder="Ex: Divino Fogão")
         mes_ref = c2.text_input("CICLO / MÊS DE REFERÊNCIA *", value="2026-09")
         data_hora = c3.text_input("DATA/HORA DA VISTORIA *", placeholder="Ex: 24/09/2026 10:00")
 
@@ -751,8 +860,8 @@ elif modulo == "📋 Matriz Interativa de Dados":
             with st.expander(f"🔍 Ver Detalhes Técnicos — {row['loja']}"):
                 st.write(f"• **Incêndio (NFPA 96 / NBR 14518):** {'✅ Conforme' if row['incendio_conforme'] else '❌ Inconforme'}")
                 st.write(f"• **Intertravamento Gás (NBR 14518):** {'✅ Conforme' if row['intertravamento_ok'] else '❌ Inconforme'}")
-                st.write(f"• **Fiação Elétrica (NR-10):** {'❌ Exposta' if row['eletrica_exposta'] else '✅ Protegida'}")
-                st.write(f"• **Casa de Máquinas (NR-12):** {'❌ Obstruída' if row['casa_maquinas_obstruida'] else '✅ Livre'}")
+                st.write(f"• **Fiação Elétrica (NR-10 / NBR 5410):** {'❌ Exposta' if row['eletrica_exposta'] else '✅ Protegida'}")
+                st.write(f"• **Casa de Máquinas (NR-12):** {'❌ Obstruída / Desgaste' if row['casa_maquinas_obstruida'] else '✅ Livre'}")
                 st.write(f"• **Observações:** {row.get('observacoes', 'Nenhuma')}")
 
 # ==========================================
@@ -765,7 +874,6 @@ elif modulo == "🗑️ Gerenciar & Excluir Vistorias":
     if df.empty:
         st.info("Nenhum registro disponível para exclusão.")
     else:
-        # Opções formatadas para seleção
         df_excluir = df.copy()
         df_excluir["label"] = df_excluir.apply(lambda r: f"ID: {r['id']} | Loja: {r.get('loja', 'Sem Nome')} | Ref: {r.get('mes_referencia', 'N/A')}", axis=1)
 
@@ -773,7 +881,7 @@ elif modulo == "🗑️ Gerenciar & Excluir Vistorias":
 
         registro_id = df_excluir[df_excluir["label"] == opcao_selecionada]["id"].values[0]
 
-        st.warning(f"⚠️ **Atenção:** Você está prestes a excluir permanentemente o registro seleccionado. Essa ação não pode ser desfeita.")
+        st.warning(f"⚠️ **Atenção:** Você está prestes a excluir permanentemente o registro selecionado. Essa ação não pode ser desfeita.")
 
         if st.button("❌ Confirmar e Excluir Vistoria"):
             try:
