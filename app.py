@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from supabase import create_client, Client
-from datetime import datetime
 
 # -----------------------------------------------------------------------------
 # Configuração Inicial da Página
@@ -29,7 +28,7 @@ except Exception as e:
     st.stop()
 
 # -----------------------------------------------------------------------------
-# Função para Carregar Vistorias da Tabela "vistorias_exaustao"
+# Função para Carregar Vistorias
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=5)
 def carregar_dados():
@@ -150,13 +149,14 @@ st.caption("Norma ABNT NBR 14518:2019 — Cozinhas Profissionais")
 # -----------------------------------------------------------------------------
 if menu == "📋 Novo Relatório (Formulário)":
     st.header("Preenchimento de Relatório de Vistoria")
-    st.info("Preencha os dados da loja vistoriada. O campo de resposta aceita até duas palavras. O campo de anotações é opcional.")
+    st.info("Apenas Nome da Loja, Mês de Referência e Data/Hora são obrigatórios. Os demais campos do relatório são opcionais.")
 
     with st.form("form_vistoria", clear_on_submit=True):
         st.subheader("📍 Identificação Geral")
-        col_loja, col_data = st.columns(2)
-        loja_nome = col_loja.text_input("LOJA *", placeholder="Ex: Loja 01 - Centro")
-        data_hora = col_data.text_input("DATA/HORA *", value=datetime.now().strftime("%Y-%m-%d %H:%M"))
+        col_loja, col_mes, col_data = st.columns(3)
+        loja_nome = col_loja.text_input("LOJA *", placeholder="Ex: McDonalds - Shopping")
+        mes_ref = col_mes.text_input("MÊS DE REFERÊNCIA *", placeholder="Ex: 2026-06 ou Junho/2026")
+        data_hora = col_data.text_input("DATA/HORA *", placeholder="Ex: 15/06/2026 14:30")
 
         respostas_coletadas = {}
 
@@ -171,7 +171,7 @@ if menu == "📋 Novo Relatório (Formulário)":
                 resp = col_resp.text_input(
                     label=f"Resposta para '{pergunta}'",
                     key=f"resp_{secao_nome}_{index}",
-                    placeholder="Ex: Sim / Não / Inox",
+                    placeholder="Resposta (Opcional - até 2 palavras)",
                     max_chars=25,
                     label_visibility="collapsed"
                 )
@@ -184,38 +184,39 @@ if menu == "📋 Novo Relatório (Formulário)":
                 )
                 
                 respostas_coletadas[pergunta] = {
-                    "resposta": resp.strip(),
-                    "observacao": obs.strip()
+                    "resposta": resp.strip() if resp.strip() else "(Sem preenchimento)",
+                    "observacao": obs.strip() if obs.strip() else ""
                 }
 
         st.divider()
         st.markdown("### 🔽 OBSERVAÇÕES GERAIS")
-        obs_gerais = st.text_area("OBSERVAÇÕES GERAIS", placeholder="Digite considerações gerais sobre a vistoria técnica...")
+        obs_gerais = st.text_area("OBSERVAÇÕES GERAIS (Opcional)", placeholder="Digite considerações gerais caso haja...")
 
         submetido = st.form_submit_button("💾 Salvar Relatório de Vistoria")
 
         if submetido:
-            if not loja_nome or not data_hora:
-                st.error("Por favor, preencha o nome da LOJA e DATA/HORA antes de salvar.")
+            if not loja_nome or not mes_ref or not data_hora:
+                st.error("Por favor, preencha os campos obrigatórios: LOJA, MÊS DE REFERÊNCIA e DATA/HORA.")
             else:
                 dados_payload = {
                     "loja": loja_nome,
+                    "mes_referencia": mes_ref,
                     "data_hora": data_hora,
                     "status": "Concluída",
-                    "observacoes_gerais": obs_gerais,
-                    "questoes": respostas_coletadas,
-                    "created_at": datetime.now().isoformat()
+                    "observacoes_gerais": obs_gerais if obs_gerais else "(Sem observações gerais)",
+                    "questoes": respostas_coletadas
                 }
 
                 try:
                     supabase.table("vistorias_exaustao").insert({
                         "loja": loja_nome,
+                        "mes_referencia": mes_ref,
                         "data_hora": data_hora,
                         "status": "Concluída",
                         "dados": dados_payload
                     }).execute()
 
-                    st.success(f"Relatório da {loja_nome} salvo com sucesso no banco de dados!")
+                    st.success(f"Relatório da loja {loja_nome} salvo com sucesso!")
                     st.cache_data.clear()
                 except Exception as e:
                     st.error(f"Erro ao salvar no Supabase: {e}")
@@ -228,28 +229,28 @@ elif menu == "📊 Visão Geral / Métricas":
 
     if not df.empty:
         c1, c2, c3 = st.columns(3)
-        c1.metric("Total de Vistorias Salvas", len(df))
+        c1.metric("Total de Vistorias", len(df))
         
         if "loja" in df.columns:
             lojas_unicas = df["loja"].dropna().nunique()
-            c2.metric("Lojas Cadastradas", lojas_unicas)
+            c2.metric("Lojas Únicas", lojas_unicas)
         
-        c3.metric("Norma de Referência", "ABNT NBR 14518:2019")
+        c3.metric("Norma Base", "ABNT NBR 14518:2019")
 
         st.divider()
-        st.subheader("Registros Recentes")
+        st.subheader("Registros Salvos")
         
         col_tabela, col_grafico = st.columns([2, 1])
         with col_tabela:
-            exibir_df = df[["loja", "data_hora", "status", "created_at"]] if "loja" in df.columns else df
-            st.dataframe(exibir_df, use_container_width=True)
+            colunas_exibir = [c for c in ["loja", "mes_referencia", "data_hora", "status", "created_at"] if c in df.columns]
+            st.dataframe(df[colunas_exibir], use_container_width=True)
 
         with col_grafico:
             if "loja" in df.columns and not df["loja"].isnull().all():
                 fig = px.bar(df, x="loja", title="Vistorias por Loja", color="loja")
                 st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("Nenhuma vistoria cadastrada até o momento. Acesse o menu 'Novo Relatório' para preencher o formulário.")
+        st.info("Nenhum registro encontrado. Acesse o menu 'Novo Relatório' para começar a alimentar o sistema.")
 
 # -----------------------------------------------------------------------------
 # MÓDULO 3: Análise Detalhada das Lojas
@@ -259,39 +260,42 @@ elif menu == "🔍 Análise Detalhada das Lojas":
 
     if not df.empty and "loja" in df.columns and df["loja"].notnull().any():
         lojas_validas = df["loja"].dropna().unique()
-        loja_sel = st.selectbox("Selecione a Loja para visualizar o checklist completo:", lojas_validas)
+        loja_sel = st.selectbox("Selecione a Loja para consultar:", lojas_validas)
         
-        registro = df[df["loja"] == loja_sel].iloc[0]
-        dados_json = registro.get("dados", {})
+        registros_loja = df[df["loja"] == loja_sel]
+        
+        for idx, registro in registros_loja.iterrows():
+            dados_json = registro.get("dados", {})
+            st.subheader(f"Vistoria: {registro.get('loja')} — {registro.get('mes_referencia', 'N/A')}")
+            st.write(f"**Data/Hora do Registro:** {registro.get('data_hora', 'N/A')}")
 
-        st.write(f"**Data da Vistoria:** {registro.get('data_hora', 'N/A')}")
-        
-        if isinstance(dados_json, dict) and "questoes" in dados_json:
-            questoes = dados_json["questoes"]
-            
-            itens = []
-            for q, val in questoes.items():
-                itens.append({
-                    "Item / Pergunta": q,
-                    "Resposta (Até 2 Palavras)": val.get("resposta", ""),
-                    "Anotações / Observações": val.get("observacao", "")
-                })
-            
-            st.dataframe(pd.DataFrame(itens), use_container_width=True)
-            
-            if "observacoes_gerais" in dados_json and dados_json["observacoes_gerais"]:
-                st.subheader("Observações Gerais")
-                st.info(dados_json["observacoes_gerais"])
-        else:
-            st.warning("Selecione um registro salvo através do novo formulário.")
+            if isinstance(dados_json, dict) and "questoes" in dados_json:
+                questoes = dados_json["questoes"]
+                
+                itens = []
+                for q, val in questoes.items():
+                    itens.append({
+                        "Pergunta / Item": q,
+                        "Resposta": val.get("resposta", "(Sem preenchimento)"),
+                        "Observações": val.get("observacao", "")
+                    })
+                
+                st.dataframe(pd.DataFrame(itens), use_container_width=True)
+                
+                if dados_json.get("observacoes_gerais"):
+                    st.markdown("**Observações Gerais:**")
+                    st.info(dados_json["observacoes_gerais"])
+                st.divider()
+            else:
+                st.warning("Este registro não possui dados em formato JSON padronizado.")
     else:
-        st.info("Nenhum dado cadastrado para análise.")
+        st.info("Nenhuma loja cadastrada até o momento.")
 
 # -----------------------------------------------------------------------------
 # MÓDULO 4: Diagnósticos e Laudos Técnicos
 # -----------------------------------------------------------------------------
 elif menu == "📄 Diagnósticos e Laudos Técnicos":
-    st.header("Diagnósticos e Pareceres Dissertativos Ricos")
+    st.header("Diagnósticos e Pareceres Dissertativos")
 
     if not df.empty and "loja" in df.columns and df["loja"].notnull().any():
         lojas_validas = df["loja"].dropna().unique()
@@ -303,53 +307,48 @@ elif menu == "📄 Diagnósticos e Laudos Técnicos":
             questoes = dados_json.get("questoes", {}) if isinstance(dados_json, dict) else {}
 
             st.markdown(f"## 📋 PARECER TÉCNICO DE VISTORIA - {str(loja_laudo).upper()}")
-            st.markdown(f"**Norma de Referência:** ABNT NBR 14518:2019 (Sistemas de Exaustão para Cozinhas Profissionais)")
-            st.markdown(f"**Data/Hora do Levantamento:** {registro.get('data_hora', 'N/A')}")
+            st.markdown(f"**Norma de Referência:** ABNT NBR 14518:2019")
+            st.markdown(f"**Mês de Referência:** {registro.get('mes_referencia', 'N/A')}")
+            st.markdown(f"**Data/Hora da Inspeção:** {registro.get('data_hora', 'N/A')}")
             st.divider()
 
-            st.markdown("### 1. DIAGNÓSTICO DO SISTEMA DE COIFA")
+            st.markdown("### 1. DADOS DA COIFA")
             for p in SECOES_RELATORIO["DADOS DA COIFA"]:
                 if p in questoes:
-                    r = questoes[p].get("resposta", "Não informado")
+                    r = questoes[p].get("resposta", "(Sem preenchimento)")
                     o = questoes[p].get("observacao", "")
-                    obs_str = f" _(Anotação: {o})_" if o else ""
+                    obs_str = f" _(Obs: {o})_" if o else ""
                     st.markdown(f"- **{p}:** {r}{obs_str}")
 
-            st.markdown("### 2. DIAGNÓSTICO DO EXAUSTOR E CASA DE MÁQUINAS")
+            st.markdown("### 2. DADOS DO EXAUSTOR")
             for p in SECOES_RELATORIO["DADOS DO EXAUSTOR"]:
                 if p in questoes:
-                    r = questoes[p].get("resposta", "Não informado")
+                    r = questoes[p].get("resposta", "(Sem preenchimento)")
                     o = questoes[p].get("observacao", "")
-                    obs_str = f" _(Anotação: {o})_" if o else ""
+                    obs_str = f" _(Obs: {o})_" if o else ""
                     st.markdown(f"- **{p}:** {r}{obs_str}")
 
-            st.markdown("### 3. DIAGNÓSTICO DOS DUTOS DE EXAUSTÃO")
+            st.markdown("### 3. DUTOS DE EXAUSTÃO")
             for p in SECOES_RELATORIO["DUTOS DE EXAUSTÃO"]:
                 if p in questoes:
-                    r = questoes[p].get("resposta", "Não informado")
+                    r = questoes[p].get("resposta", "(Sem preenchimento)")
                     o = questoes[p].get("observacao", "")
-                    obs_str = f" _(Anotação: {o})_" if o else ""
+                    obs_str = f" _(Obs: {o})_" if o else ""
                     st.markdown(f"- **{p}:** {r}{obs_str}")
 
             st.divider()
-            st.markdown("### 4. PARECER DISSERTATIVO FINAL E RECOMENDAÇÕES")
-            obs_g = dados_json.get("observacoes_gerais", "") if isinstance(dados_json, dict) else ""
-            st.write(f"""
-            O sistema de exaustão da unidade **{loja_laudo}** foi inspecionado em conformidade com as diretrizes da norma ABNT NBR 14518:2019. 
-            Com base nos dados inseridos, recomenda-se a execução regular das rotinas de manutenção preventiva e corretiva nos pontos observados.
-            
-            **Observações Gerais da Vistoria:**
-            {obs_g if obs_g else 'Nenhuma observação geral registrada.'}
-            """)
+            st.markdown("### 4. OBSERVAÇÕES GERAIS E CONCLUIMENTO")
+            obs_g = dados_json.get("observacoes_gerais", "(Sem observações gerais)") if isinstance(dados_json, dict) else ""
+            st.write(obs_g)
     else:
-        st.info("Cadastre ao menos uma loja no formulário para gerar o laudo técnico.")
+        st.info("Nenhuma loja disponível para geração de laudos.")
 
 # -----------------------------------------------------------------------------
 # MÓDULO 5: Configurações
 # -----------------------------------------------------------------------------
 elif menu == "⚙️ Configurações":
-    st.header("Configurações e Banco de Dados")
-    st.success("Conexão ativada com o Supabase (Tabela: vistorias_exaustao).")
-    if st.button("🔄 Atualizar Cache de Dados"):
+    st.header("Configurações do Sistema")
+    st.success("Conexão ativa com o Supabase (Tabela: vistorias_exaustao).")
+    if st.button("🔄 Recarregar Dados do Banco"):
         st.cache_data.clear()
-        st.success("Dados recarregados com sucesso!")
+        st.success("Cache limpo! Dados recarregados.")
