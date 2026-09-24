@@ -637,6 +637,9 @@ elif modulo == "🏪 Diagnóstico Detalhado por Loja":
 # ==========================================
 # MÓDULO 3: METODOLOGIA ICL & PONDERAÇÃO
 # ==========================================
+# ==========================================
+# MÓDULO 3: METODOLOGIA ICL & PONDERAÇÃO
+# ==========================================
 elif modulo == "📐 Metodologia ICL & Ponderação":
     st.markdown("### 📐 Metodologia do Índice de Criticidade de Loja (ICL)")
     
@@ -648,37 +651,64 @@ elif modulo == "📐 Metodologia ICL & Ponderação":
     $$ICL = (P_{INC} \\times 0.35) + (P_{INT} \\times 0.25) + (P_{ELE} \\times 0.20) + (P_{OBS} \\times 0.10) + (P_{VAZ} \\times 0.10)$$
 
     ---
-    #### 💡 Exemplo Prático de Cálculo (Passo a Passo)
+    #### ⚖️ Justificativa Técnica dos Pesos
+    A distribuição dos pesos reflete o impacto direto na segurança de vidas e do patrimônio do shopping:
 
-    Para entender como chegamos ao número final, acompanhe este exemplo hipotético de cálculo de uma loja:
-
-    * **Passo 1: Atribuição das Notas de Risco por Pilar (de 0 a 100)**
-      * **$P_{INC}$ (Incêndio):** O sistema saponificante está OK, mas os filtros estão danificados $\\rightarrow$ Nota = **25**
-      * **$P_{INT}$ (Intertravamento):** Não há intertravamento entre exaustor e gás $\\rightarrow$ Nota = **100** (Risco total)
-      * **$P_{ELE}$ (Elétrica):** A fiação do exaustor está totalmente exposta $\\rightarrow$ Nota = **100** (Risco total)
-      * **$P_{OBS}$ (Máquinas):** Correias frouxas e desalinhamento mecânico $\\rightarrow$ Nota = **40**
-      * **$P_{VAZ}$ (Estanqueidade):** Sem dreno de óleo e sem janelas de inspeção na descarga $\\rightarrow$ Nota = **50**
-
-    * **Passo 2: Multiplicação pelos Pesos Normativos**
-      * $25 \\times 0.35 = \\mathbf{8.75}$
-      * $100 \\times 0.25 = \\mathbf{25.00}$
-      * $100 \\times 0.20 = \\mathbf{20.00}$
-      * $40 \\times 0.10 = \\mathbf{4.00}$
-      * $50 \\times 0.10 = \\mathbf{5.00}$
-
-    * **Passo 3: Soma Ponderada dos Resultados**
-      * $ICL = 8.75 + 25.00 + 20.00 + 4.00 + 5.00 = \\mathbf{62.75\\%}$
-
-    * **Passo 4: Classificação da Criticidade**
-      * Resultado de **62.75%** enquadra a operação na faixa **CRÍTICO (50% a 69.9%)**, exigindo adequações corretivas urgentes.
+    1. **$P_{INC}$ — Proteção contra Incêndio (Peso 0,35 / 35%):**
+       * *Por que 35%?* É o risco de maior severidade iminente. Falhas no sistema saponificante/combate direto podem resultar no alastramento incontrolável do fogo pelo duto principal.
+    2. **$P_{INT}$ — Intertravamento de Gás (Peso 0,25 / 25%):**
+       * *Por que 25%?* Caso o exaustor pare e o gás continue ligado, há acúmulo de vapores e risco de explosão na cozinha e na praça de alimentação.
+    3. **$P_{ELE}$ — Segurança Elétrica (Peso 0,20 / 20%):**
+       * *Por que 20%?* A fiação exposta e impregnada de gordura perto de motores/coifas atua como fonte de ignição direta (arco elétrico/curto-circuito).
+    4. **$P_{OBS}$ — Máquinas e Casa de Máquinas (Peso 0,10 / 10%):**
+       * *Por que 10%?* Desalinhamento, correias frouxas e falta de lubrificação causam sobreaquecimento do motor e parada mecânica (risco operacional e térmico).
+    5. **$P_{VAZ}$ — Estanqueidade e Dutos (Peso 0,10 / 10%):**
+       * *Por que 10%?* Vazamentos de óleo e ausência de janelas de inspeção comprometem a higienização contínua (NBR 14518), gerando acúmulo gradual de combustível líquido.
 
     ---
-    #### 📊 Tabela de Graus de Criticidade
+    #### 🎯 Origem e Regras de Pontuação das Notas ($P_x$ de 0 a 100)
+    As notas de cada pilar não são arbitrárias; elas são calculadas cumulativamente com base na presença de falhas no check-list presencial:
+
+    | Pilar | Critério de Pontuação da Nota (0 a 100) |
+    | :--- | :--- |
+    | **$P_{INC}$** | • **0** = Conforme.<br>• **25** = Filtros danificados/ausentes.<br>• **75** = Saponificante com inconformidade parcial/obs.<br>• **100** = Sem saponificante ou inoperante. |
+    | **$P_{INT}$** | • **0** = Intertravamento de gás operante.<br>• **100** = Ausência ou falha total no intertravamento. |
+    | **$P_{ELE}$** | • **0** = Condutores protegidos em eletroduto.<br>• **100** = Fiação exposta/impregnada (NBR 5410/NR-10). |
+    | **$P_{OBS}$** | Somatório acumulativo do exaustor:<br>• Casa de máquinas obstruída (+40)<br>• Lubrificação incorreta (+20)<br>• Desalinhamento rotativo (+20)<br>• Correias frouxas (+20) |
+    | **$P_{VAZ}$** | Somatório acumulativo dos dutos/dreno:<br>• Vazamento de duto (+40)<br>• Inexistência de dreno de óleo (+20)<br>• Sem janelas de inspeção na descarga (+15)<br>• Damper inacessível para limpeza (+15)<br>• Sem acesso ao duto da cozinha (+10) |
+
+    ---
+    #### 💡 Exemplo Prático Ilustrativo (Passo a Passo)
+
+    Acompanhe o cálculo para uma loja com falhas mistas:
+
+    * **Passo 1: Identificação das Inconformidades e Atribuição das Notas ($P_x$)**
+      * **$P_{INC}$ = 25:** Saponificante funciona, mas os filtros das coifas estão danificados (+25 pontos).
+      * **$P_{INT}$ = 100:** Não há intertravamento entre a válvula de gás e a exaustão (+100 pontos de risco).
+      * **$P_{ELE}$ = 100:** Condutores elétricos do exaustor estão expostos sem eletroduto rígido (+100 pontos).
+      * **$P_{OBS}$ = 40:** O conjunto rotativo do exaustor está desalinhado (+20) e com correias frouxas (+20) $\\rightarrow$ Nota **40**.
+      * **$P_{VAZ}$ = 50:** Não possui dreno de óleo (+20), sem janelas de inspeção na descarga (+15) e damper inacessível (+15) $\\rightarrow$ Nota **50**.
+
+    * **Passo 2: Aplicação Ponderada dos Pesos**
+      * Incêndio: $25 \\times 0.35 = \\mathbf{8.75}$
+      * Intertravamento: $100 \\times 0.25 = \\mathbf{25.00}$
+      * Elétrica: $100 \\times 0.20 = \\mathbf{20.00}$
+      * Máquinas: $40 \\times 0.10 = \\mathbf{4.00}$
+      * Estanqueidade: $50 \\times 0.10 = \\mathbf{5.00}$
+
+    * **Passo 3: Soma Ponderada Final**
+      * $$ICL = 8.75 + 25.00 + 20.00 + 4.00 + 5.00 = \\mathbf{62.75\\%}$$
+
+    * **Passo 4: Classificação da Criticidade**
+      * O resultado de **62.75%** enquadra a loja na faixa **CRÍTICO (50.0% a 69.9%)**, exigindo notificação com prazo de adequação de 15 dias.
+
+    ---
+    #### 📊 Faixas de Criticidade do ICL
     * **0.0% a 19.9% — CONTROLADO (Verde):** Operação em conformidade normativa total.
-    * **20.0% a 34.9% — ATENÇÃO (Azul):** Pequenos desvios estéticos ou operacionais leves.
+    * **20.0% a 34.9% — ATENÇÃO (Azul):** Pequenos desvios operacionais leves.
     * **35.0% a 49.9% — RELEVANTE (Laranja):** Necessidade de manutenção preventiva programada.
-    * **50.0% a 69.9% — CRÍTICO (Vermelho):** Presença de riscos reais de incêndio ou vazamento de gás. Regularização em 15 dias.
-    * **70.0% a 100.0% — SEVERO (Preto):** Alto risco iminente de sinistro. Notificação emergencial em até 48 horas.
+    * **50.0% a 69.9% — CRÍTICO (Vermelho):** Presença de riscos reais de incêndio/gás. Regularização em 15 dias.
+    * **70.0% a 100.0% — SEVERO (Preto):** Alto risco iminente de sinistro. Plano emergencial em até 48 horas.
     """)
 
 # ==========================================
